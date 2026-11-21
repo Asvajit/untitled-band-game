@@ -5,3 +5,4 @@ dist/game.js
 dist/tpose.*
 dist/bodies.*
 dist/glbview.*
+dist/models/bus.glb

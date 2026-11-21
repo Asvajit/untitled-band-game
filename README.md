@@ -32,4 +32,5 @@ so run `node build.mjs` before committing. With the repo connected in Cloudflare
 Vehicle exterior models, used under CC BY 4.0 (modified: textures stripped, van mesh simplified, rescaled, door openings cut):
 - "FREE GMC Motorhome reimagined low poly" by Karol Miklas — https://sketchfab.com/3d-models/free-gmc-motorhome-reimagined-low-poly-6hiH0iyDqXqtdD9wbqSbyLLhKmz
 - "VW Van" by jesseroberts — https://sketchfab.com/3d-models/vw-van-718f8f0185bb4ce1b34242796b19418c
+- "Scania Touring (2026)" by geyges — https://sketchfab.com/3d-models/scania-touring-2026-24153002d63147b08241d5fa0812478d — Sketchfab Standard licence, NOT CC: dist/models/bus.glb is git-ignored and not in this repo. Without it the bus uses the built-in exterior.
 Models live in dist/models/; src/main.js MODELS sets their scale, wheels and door openings. tools/glbstrip.py prepares a new one.

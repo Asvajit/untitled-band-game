@@ -49,20 +49,20 @@ export const SPECS = {
     botSeats: ['shotgun', 'sofaA', 'sofaB', 'benchA', 'benchB'],
   },
   bus: {
-    name: 'Tour Bus', title: 'the tour bus', F: 1.0, W: 1.28, IW: 1.18, ZB: -6.6, ZF: 6.6, TOP: 3.15, driverX: 0.72,
+    name: 'Tour Bus', title: 'the tour bus', F: 1.35, W: 1.28, IW: 1.18, ZB: -6.6, ZF: 6.6, TOP: 3.45, driverX: 0.72,
     wheelR: 0.52, track: 1.2, axleF: 4.9, axleR: -4.2, wheelbase: 8.6, power: 1.22, vmax: 26, maxSteer: 0.52, steerV: 13, steerRate: 3, drain: 0.5, solar: false, grip: 5.2,
-    colZ: [5.6, 2.8, 0, -2.8, -5.6], colR: 1.4, orbit: 17, chase: [7.5, -19], exit: [-3.4, 6.0], cams: true,
+    colZ: [5.6, 2.8, 0, -2.8, -5.6], colR: 1.4, orbit: 17, chase: [7.5, -19], exit: [-3.9, 6.0], cams: true,
     smoke: [0, 3.4, -6.2], wipers: [[0.75, 1.05], [-0.55, 1.05]],
     seats: {
-      driver: { p: [0.72, 1.0, 5.72], yaw: 0, stand: [0, 4.95, P2 * 2] },
-      sofaL1: { p: [0.86, 1.0, 3.45], yaw: -P2, stand: [0, 3.45, -P2] },
-      sofaL2: { p: [0.86, 1.0, 2.8], yaw: -P2, stand: [0, 2.8, -P2] },
-      sofaR1: { p: [-0.86, 1.0, 3.45], yaw: P2, stand: [0, 3.45, P2] },
-      sofaR2: { p: [-0.86, 1.0, 2.8], yaw: P2, stand: [0, 2.8, P2] },
-      dinA1: { p: [0.94, 1.0, 1.95], yaw: Math.PI, stand: [-0.15, 1.95, Math.PI] },
-      dinA2: { p: [0.5, 1.0, 1.95], yaw: Math.PI, stand: [-0.15, 1.95, Math.PI] },
-      dinB1: { p: [0.94, 1.0, 0.62], yaw: 0, stand: [-0.15, 0.62, 0] },
-      dinB2: { p: [0.5, 1.0, 0.62], yaw: 0, stand: [-0.15, 0.62, 0] },
+      driver: { p: [0.72, 1.35, 5.72], yaw: 0, stand: [0, 4.95, P2 * 2] },
+      sofaL1: { p: [0.86, 1.35, 3.45], yaw: -P2, stand: [0, 3.45, -P2] },
+      sofaL2: { p: [0.86, 1.35, 2.8], yaw: -P2, stand: [0, 2.8, -P2] },
+      sofaR1: { p: [-0.86, 1.35, 3.45], yaw: P2, stand: [0, 3.45, P2] },
+      sofaR2: { p: [-0.86, 1.35, 2.8], yaw: P2, stand: [0, 2.8, P2] },
+      dinA1: { p: [0.94, 1.35, 1.95], yaw: Math.PI, stand: [-0.15, 1.95, Math.PI] },
+      dinA2: { p: [0.5, 1.35, 1.95], yaw: Math.PI, stand: [-0.15, 1.95, Math.PI] },
+      dinB1: { p: [0.94, 1.35, 0.62], yaw: 0, stand: [-0.15, 0.62, 0] },
+      dinB2: { p: [0.5, 1.35, 0.62], yaw: 0, stand: [-0.15, 0.62, 0] },
     },
     botSeats: ['sofaL1', 'sofaR1', 'sofaR2', 'dinA1', 'dinB1'],
   },
@@ -248,7 +248,7 @@ export class Van {
     const S = this.spec, shell = new THREE.Group(); shell.add(scene);
     scene.scale.set(...cfg.scale); scene.updateMatrixWorld(true);
     const bb = new THREE.Box3().setFromObject(scene);
-    scene.position.set(0, -bb.min.y, cfg.zShift || 0); scene.updateMatrixWorld(true);
+    scene.position.set(cfg.xShift || 0, -bb.min.y, cfg.zShift || 0); scene.updateMatrixWorld(true);
     // door openings cut out of the model (vehicle-local boxes), done in the shader
     const holes = cfg.holes.map((h) => [new THREE.Vector3(h[0], h[2], h[4]), new THREE.Vector3(h[1], h[3], h[5])]);
     this.shellU = { uInvRoot: { value: new THREE.Matrix4() }, uHoleMin: { value: holes.map((h) => h[0]) }, uHoleMax: { value: holes.map((h) => h[1]) } };
@@ -280,7 +280,7 @@ export class Van {
     });
     this.root.add(shell); this.shell = shell;
     // everything box-built on the outside becomes "interior view only"
-    for (const c of [...this.root.children]) if (c.isMesh && c.material && c.material.visible !== false) this.walls.add(c);
+    for (const c of [...this.root.children]) if (c.isMesh && !c.userData.ext && c.material && c.material.visible !== false) this.walls.add(c);
     // doors stay visible from both views, painted to match the model
     const doorMat = toon(cfg.doorColor);
     for (const d of [...(this.autoDoors || []), ...Object.values(this.doors || {})]) {
@@ -364,7 +364,7 @@ export class Van {
       hbm.userData.name = 'door' + key; this.hit['door' + key] = hbm;
       const col = [side > 0 ? IW : -W, side > 0 ? W : -IW, F - 0.3, WT, D0, D1]; this.cols.push(col);
       this.doors[key] = { piv, side, open: false, ang: 0, col, closed: col.slice() };
-      bx(side > 0 ? W : -W - 0.32, side > 0 ? W + 0.32 : -W, 0.18, 0.34, D0 + 0.05, D1 - 0.05, chrome);
+      bx(side > 0 ? W : -W - 0.32, side > 0 ? W + 0.32 : -W, 0.18, 0.34, D0 + 0.05, D1 - 0.05, chrome).userData.ext = true;
     }
     // back + rear window, roof
     bx(-W, W, F, TOP, ZB, ZB + 0.08, upper, { parent: this.walls, inner: 4 });
@@ -389,7 +389,7 @@ export class Van {
     // round headlights
     this.lights(ZF + 0.43, ZB, 0.7, 0.2, 0.85, 0.15, 0.15);
     // side door step
-    bx(-W - 0.35, -W, 0.18, 0.34, -1.15, 0.05, chrome);
+    bx(-W - 0.35, -W, 0.18, 0.34, -1.15, 0.05, chrome).userData.ext = true;
     // interior
     const ip = { parent: this.interior };
     bx(-IW, IW, TOP - 0.02, TOP, ZB + 0.1, ZF - 0.1, toon('#c9b28a'), { ...ip, solid: false, cast: false });
@@ -480,8 +480,8 @@ export class Van {
     for (const s of [-1, 1]) bx(0.9 + s * 0.22 - 0.03, 0.9 + s * 0.22 + 0.03, F, TOP + 0.3, ZB - 0.12, ZB - 0.06, chrome, { solid: false });
     for (let k = 0; k < 6; k++) bx(0.66, 1.14, F + 0.3 + k * 0.4, F + 0.34 + k * 0.4, ZB - 0.12, ZB - 0.06, chrome, { solid: false });
     this.logo(['THE LOOSE WIRES', 'WORLD TOUR'], '#c9763c', [[3.4, 1.0, W + 0.02, F + 1.5, -2.2, P2], [2.2, 0.65, -W - 0.02, F + 2.5, -1.6, -P2]]);
-    bx(-W - 0.62, -W - 0.3, 0.2, 0.36, DZ0 + 0.05, DZ1 - 0.05, chrome);
-    bx(-W - 0.3, -W, 0.2, 0.68, DZ0 + 0.05, DZ1 - 0.05, chrome);
+    bx(-W - 0.62, -W - 0.3, 0.2, 0.36, DZ0 + 0.05, DZ1 - 0.05, chrome).userData.ext = true;
+    bx(-W - 0.3, -W, 0.2, 0.68, DZ0 + 0.05, DZ1 - 0.05, chrome).userData.ext = true;
     this.lights(ZF + 0.78, ZB, 0.98, 0.12, 1.15, 0.3, 0.17);
     // interior
     const I = this.interior, ip = { parent: I };
@@ -518,11 +518,11 @@ export class Van {
     const S = this.spec, bx = this.meshBx;
     const F = S.F, W = S.W, IW = S.IW, ZB = S.ZB, ZF = S.ZF, TOP = S.TOP;
     const body = toon('#23252e'), body2 = toon('#2f323d'), accent = toon('#7af0ff'), chrome = toon('#c9c6c0'), dark = toon('#17171c');
-    this.panelMat = toon('#3a3542');
+    this.panelMat = toon('#3a0d14'); // padded oxblood wall panels
     const wp = { parent: this.walls }, wl = { parent: this.walls, inner: 1 }, wr = { parent: this.walls, inner: 0 };
     const BL = F + 0.85, WT = F + 1.9;
     bx(-W, W, 0.42, F - 0.05, ZB, ZF, toon('#15151a'));
-    bx(-IW, IW, F - 0.05, F, ZB + 0.1, ZF - 0.1, toon('#4a3f55'), { solid: false });
+    bx(-IW, IW, F - 0.05, F, ZB + 0.1, ZF - 0.1, toon('#6e0f1a'), { solid: false }); // deep red carpet
     // left (+x) wall: mid door gap z[-0.95,-0.2]
     const leftSegs = [[ZB, -0.95], [-0.2, ZF - 0.4]];
     for (const [z0, z1] of leftSegs) { bx(IW, W, F, BL, z0, z1, body, wl); bx(IW, W, WT, TOP, z0, z1, body, wl); }
@@ -557,16 +557,16 @@ export class Van {
     dest.position.set(0, TOP - 0.3, ZF + 0.005); this.walls.add(dest);
     this.lights(ZF + 0.21, ZB, 0.95, -0.25, 1.05, 0.5);
     // door steps
-    for (const [z0, z1] of [[5.6, 6.44], [-1.96, -1.12]]) { bx(-W - 0.5, -W, 0.25, 0.42, z0, z1, chrome); bx(-W - 0.25, -W, 0.25, 0.72, z0, z1, chrome); }
-    bx(W, W + 0.5, 0.25, 0.42, -0.93, -0.22, chrome); bx(W, W + 0.25, 0.25, 0.72, -0.93, -0.22, chrome);
+    const stairs = (s, z0, z1) => { for (let k = 0; k < 3; k++) { const xo = W + (3 - k) * 0.3, m = s > 0 ? bx(W, xo, 0.12, F * (k + 1) / 4, z0, z1, k % 2 ? dark : chrome) : bx(-xo, -W, 0.12, F * (k + 1) / 4, z0, z1, k % 2 ? dark : chrome); m.userData.ext = true; } };
+    stairs(-1, 5.6, 6.44); stairs(-1, -1.96, -1.12); stairs(-1, -5.58, -4.92); stairs(1, -0.93, -0.22);
     // ---- interior (floor plan, front → back)
     const ip = { parent: this.interior };
-    bx(-IW, IW, TOP - 0.02, TOP, ZB + 0.1, ZF - 0.1, toon('#2a2733'), { ...ip, solid: false, cast: false });
-    const purple = toon('#9b8fd0'), sofa = toon('#4a4a52'), sofa2 = toon('#3a3a42'), counter = toon('#8f84c4');
+    bx(-IW, IW, TOP - 0.02, TOP, ZB + 0.1, ZF - 0.1, toon('#16090c'), { ...ip, solid: false, cast: false });
+    const purple = toon('#141216'), sofa = toon('#b3121f'), sofa2 = toon('#860d17'), counter = toon('#141216'), gold = toon('#d1a94a');
     this.seatBox(0.72, 5.72, '#3a3a42', '#2c2c33');
     // cab partition with centre doorway
-    bx(0.36, IW, F, F + 1.3, 4.44, 5.32, toon('#e8e6ee'), ip); bx(-IW, -0.34, F, F + 1.3, 4.44, 5.32, toon('#e8e6ee'), ip);
-    bx(0.36, IW, F + 1.3, TOP, 4.44, 4.52, toon('#3a3542'), ip); bx(-IW, -0.34, F + 1.3, TOP, 4.44, 4.52, toon('#3a3542'), ip);
+    bx(0.36, IW, F, F + 1.3, 4.44, 5.32, toon('#141216'), ip); bx(-IW, -0.34, F, F + 1.3, 4.44, 5.32, toon('#141216'), ip);
+    bx(0.36, IW, F + 1.3, TOP, 4.44, 4.52, toon('#3a0d14'), ip); bx(-IW, -0.34, F + 1.3, TOP, 4.44, 4.52, toon('#3a0d14'), ip);
     // corner side tables
     for (const s of [-1, 1]) { const x0 = s > 0 ? 0.68 : -IW, x1 = s > 0 ? IW : -0.68; bx(x0, x1, F, F + 0.62, 3.87, 4.4, purple, ip); const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.3, 8), basic('#ffd9a0')); lp.position.set(s * 0.93, F + 0.8, 4.13); this.interior.add(lp); }
     // facing sofas
@@ -574,7 +574,7 @@ export class Van {
       const x0 = s > 0 ? 0.6 : -IW, x1 = s > 0 ? IW : -0.6;
       bx(x0, x1, F, F + 0.45, 2.41, 3.83, sofa, ip);
       bx(s > 0 ? 1.04 : -IW, s > 0 ? IW : -1.04, F + 0.45, F + 1.1, 2.41, 3.83, sofa2, ip);
-      for (let k = 0; k < 3; k++) bx(x0 + 0.05, x1 - 0.05, F + 0.45, F + 0.5, 2.48 + k * 0.46, 2.88 + k * 0.46, toon('#55555e'), { ...ip, solid: false });
+      for (let k = 0; k < 3; k++) bx(x0 + 0.05, x1 - 0.05, F + 0.45, F + 0.5, 2.48 + k * 0.46, 2.88 + k * 0.46, toon('#c9182a'), { ...ip, solid: false });
     }
     // dinette (left): two pairs of chairs + table
     const chair = (x, z, back) => { bx(x - 0.18, x + 0.18, F, F + 0.45, z - 0.2, z + 0.2, sofa, ip); bx(x - 0.18, x + 0.18, F + 0.45, F + 1.05, back - 0.05, back + 0.05, sofa2, ip); };
@@ -583,27 +583,27 @@ export class Van {
     this.cols.push([0.3, IW, F, F + 0.78, 1.08, 1.6]);
     // galley (right)
     bx(-IW, -0.68, F, F + 0.95, -0.94, 2.41, counter, ip);
-    bx(-IW, -0.68, F + 0.95, F + 1.0, -0.94, 2.41, toon('#d9d4e8'), { ...ip, solid: false });
+    bx(-IW, -0.68, F + 0.95, F + 1.0, -0.94, 2.41, gold, { ...ip, solid: false });
     bx(-1.08, -0.78, F + 0.96, F + 1.02, 0.95, 1.75, toon('#9fb4bd'), { ...ip, solid: false });
-    bx(-IW, -0.68, F + 1.5, F + 2.0, -0.94, 2.41, toon('#6e64a0'), { ...ip, solid: false });
+    bx(-IW, -0.68, F + 1.5, F + 2.0, -0.94, 2.41, toon('#141216'), { ...ip, solid: false });
     // WC (left, behind the mid door)
-    const wc = toon('#e8e6ee');
+    const wc = toon('#1c1418');
     bx(0.07, IW, F, TOP, -0.98, -0.94, wc, ip);
     bx(0.07, 0.11, F, TOP, -2.05, -1.45, wc, ip); bx(0.07, 0.11, F + 2.0, TOP, -1.45, -0.98, wc, ip);
     const toilet = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.42, 10), toon('#ffffff')); toilet.position.set(0.85, F + 0.21, -1.25); this.interior.add(toilet);
     bx(0.45, 0.8, F + 0.75, F + 0.85, -2.0, -1.75, toon('#ffffff'), ip);
     // little counter + bulkhead to the luggage bay (doorway on the right where the stairs were)
     bx(-0.57, 0.07, F, F + 0.9, -2.05, -1.8, counter, ip);
-    bx(-0.57, IW, F, TOP, -2.11, -2.05, toon('#3a3542'), ip);
-    bx(-IW, -0.57, F + 2.0, TOP, -2.11, -2.05, toon('#3a3542'), ip);
+    bx(-0.57, IW, F, TOP, -2.11, -2.05, toon('#3a0d14'), ip);
+    bx(-IW, -0.57, F + 2.0, TOP, -2.11, -2.05, toon('#3a0d14'), ip);
     // luggage bay: flight cases + amps
     const cases = [[-0.9, -3.0, 0.55, '#26252b'], [-0.9, -3.8, 0.8, '#2fa39a'], [0.8, -2.8, 0.9, '#c8372d'], [0.8, -3.7, 0.6, '#26252b'], [0.6, -4.8, 1.1, '#3f6fae'], [-0.7, -5.3, 0.7, '#26252b']];
     for (const [x, z, h, c] of cases) { const m = bx(x - 0.35, x + 0.35, F, F + h, z - 0.35, z + 0.35, toon(c), ip); this.rack.push({ g: m, base: m.position.clone() }); }
     for (const [role, x, z, sc] of [['drums', 0.15, -4.1, 0.5], ['synthA', -0.25, -2.8, 0.45]]) { const g = makeInstrument(role); g.scale.setScalar(sc); g.position.set(x, F, z); g.rotation.y = P2; this.interior.add(g); this.rack.push({ g, base: g.position.clone() }); }
     // mood lighting
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 9.8), basic('#7af0ff')); strip.position.set(IW - 0.02, TOP - 0.05, 0); this.interior.add(strip);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 9.8), basic('#ff2a3c')); strip.position.set(IW - 0.02, TOP - 0.05, 0); this.interior.add(strip);
     const strip2 = strip.clone(); strip2.position.x = -IW + 0.02; this.interior.add(strip2);
-    for (const z of [3.2, 0.6, -3.6]) { const l = new THREE.PointLight('#c8b0ff', 1.6, 6, 1.5); l.position.set(0, TOP - 0.3, z); this.interior.add(l); }
+    for (const z of [3.2, 0.6, -3.6]) { const l = new THREE.PointLight('#ff9a8a', 1.8, 6, 1.5); l.position.set(0, TOP - 0.3, z); this.interior.add(l); }
     // dash
     bx(-0.4, IW, F, F + 0.8, ZF - 0.65, ZF - 0.05, toon('#26252b'));
     bx(-0.4, IW, F + 0.8, F + 0.86, ZF - 0.8, ZF - 0.05, toon('#1a1a20'), { ...ip, solid: false });
@@ -613,6 +613,19 @@ export class Van {
     this.hb('port', 0.6, 1.2, F + 0.4, F + 1.0, ZB - 0.35, ZB);
     this.hb('hatch', -0.9, 0.5, 0.4, F + 0.7, ZB - 0.45, ZB);
     this.logo(['THE LOOSE WIRES', 'WORLD TOUR'], '#7af0ff', [[4.6, 1.3, W + 0.02, F + 1.35, -3.4, P2], [4.0, 1.15, -W - 0.02, F + 1.35, 2.3, -P2], [2.0, 0.6, 0, F + 1.8, ZB - 0.02, Math.PI]]);
+    // --- rock-star fittings: gold trim, a lit bar, a wall TV, a starlight ceiling and the band's name in neon
+    for (const s of [-1, 1]) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 9.6), gold); t.position.set(s * (IW - 0.015), BL - 0.03, 0.2); this.interior.add(t); const fl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 9.6), basic('#ff2a3c')); fl.position.set(s * (IW - 0.02), F + 0.03, 0.2); this.interior.add(fl); }
+    for (const s of [-1, 1]) for (let k = 0; k < 4; k++) { const btn = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), gold); btn.position.set(s * 1.02, F + 0.85, 2.6 + k * 0.36); this.interior.add(btn); }
+    const bottles = canvasTex(128, 32, (g) => { g.fillStyle = '#1a0508'; g.fillRect(0, 0, 128, 32); for (let i = 0; i < 26; i++) { g.fillStyle = ['#e8c15a', '#c9182a', '#7af0ff', '#f2ead8', '#3fae6a'][i % 5]; g.fillRect(3 + i * 4.8, 7 + (i * 7 % 5), 3, 22); g.fillRect(4 + i * 4.8, 3 + (i * 7 % 5), 1, 5); } });
+    const shelf = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.42), basic('#ffffff', { map: bottles })); shelf.position.set(-IW + 0.06, F + 1.27, 0.73); shelf.rotation.y = P2; this.interior.add(shelf);
+    const barGlow = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 3.3), basic('#ffb347')); barGlow.position.set(-0.69, F + 0.9, 0.73); this.interior.add(barGlow);
+    for (const z of [-0.4, 0.3, 1.0]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 10), sofa); st.position.set(-0.42, F + 0.62, z); this.interior.add(st); const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.6, 6), gold); leg.position.set(-0.42, F + 0.3, z); this.interior.add(leg); }
+    const tv = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.62, 1.1), toon('#0a0a0c')); tv.position.set(IW - 0.04, F + 1.45, 1.34); this.interior.add(tv);
+    const tvS = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 0.54), basic('#ffffff', { map: neonTex(['LIVE', 'WORLD TOUR'], { w: 256, h: 136, color: '#ff2a3c', size: [64, 30], bg: '#12060a' }) })); tvS.position.set(IW - 0.07, F + 1.45, 1.34); tvS.rotation.y = -P2; this.interior.add(tvS);
+    this.busNeon = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.4), basic('#ffffff', { map: neonTex('THE LOOSE WIRES', { w: 512, h: 120, color: '#ffd27a', size: 56 }), transparent: true })); this.busNeon.position.set(0.63, F + 1.75, -2.04); this.interior.add(this.busNeon);
+    const stars = new THREE.Group(); for (let i = 0; i < 70; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.01, 0.025), basic(i % 6 ? '#ffe9c0' : '#ff5a6a')); d.position.set((Math.sin(i * 12.9898) * 0.5) * (IW * 1.8), TOP - 0.03, -1.9 + ((i * 0.6180339) % 1) * 6.2); stars.add(d); } this.interior.add(stars);
+    const rug = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.012, 1.5), toon('#141216')); rug.position.set(0, F + 0.006, 3.1); this.interior.add(rug);
+    const rugTrim = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.01, 1.58), gold); rugTrim.position.set(0, F + 0.003, 3.1); this.interior.add(rugTrim);
     // diegetic CCTV: 4 cameras feeding a monitor on the dash
     const RTW = 256, RTH = 144;
     this.camFeeds = [
@@ -713,6 +726,7 @@ export class Van {
     const old = this.logoMat.map;
     this.logoMat.map = neonTex([name.toUpperCase(), this.type === 'van' ? 'ON TOUR' : 'WORLD TOUR'], { w: 512, h: 160, color: this.logoCol, size: [56, 30], font: 'Bungee' });
     this.logoMat.needsUpdate = true; if (old) old.dispose();
+    if (this.busNeon) { this.busNeon.material.map = neonTex(name.toUpperCase(), { w: 512, h: 120, color: '#ffd27a', size: 56 }); this.busNeon.material.needsUpdate = true; }
   }
   // ---- collision helpers for walkers (local space) ----
   collideLocal(p, r, h = 1.7, step = 0.45) {

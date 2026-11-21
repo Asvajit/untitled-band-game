@@ -124,6 +124,10 @@ const MODELS = {
     hide: (o, name) => name === 'interior', spin: (o, name) => name === 'clay.001', axles: [4.23, -1.9],
     ladder: { bottom: [-0.87, 0.05, -6.5], top: [-0.87, 3.67, -5.35] },
     holes: [[-3, -1.2, 0.72, 3.15, 0.6, 1.75]] },
+  bus: { url: 'models/bus.glb', scale: [1.06, 1, 1], xShift: -0.16, zShift: 4.1, doorColor: '#d9dad2',
+    wheels: { r: 0.52, pos: [[1.16, 4.1], [-1.16, 4.1], [1.16, -2.89], [-1.16, -2.89], [1.16, -4.39], [-1.16, -4.39]] }, axles: [4.1, -3.64],
+    holes: [[-3, -1.0, 1.05, 3.35, 5.58, 6.46], [-3, -1.0, 1.05, 3.35, -1.98, -1.1], [-3, -1.0, 1.05, 3.35, -5.6, -4.9], [1.0, 3, 1.05, 3.35, -0.95, -0.2]],
+    after: (V) => { for (const k of ['port', 'hatch']) V.hit[k].position.z -= 1.35; V.spec.colZ = [...V.spec.colZ, -6.6]; } },
 };
 async function loadVehicleModels() {
   const loader = new GLTFLoader();
@@ -1369,7 +1373,7 @@ function buildTitle() {
       <div class="roles">${ROLE_LIST.map((r) => `<button class="role ${r === pick ? 'on' : ''}" data-r="${r}" style="--c:${ROLES[r].color}"><b>${ROLES[r].name}</b></button>`).join('')}</div>
       <button id="go">START THE TOUR ▶</button>
       <button id="goedit" style="font-size:15px;padding:8px 18px;margin-top:8px;background:#2e2940;">✎ LEVEL EDITOR${customLevel ? ' · custom level loaded' : ''}</button>
-      <p class="note">Offline prototype: the other 5 bandmates are bots (multiplayer slots for up to 6). Keyboard + mouse. Press <kbd>\`</kbd> any time for debug tools.<br>Vehicle models: "FREE GMC Motorhome reimagined low poly" by Karol Miklas and "VW Van" by jesseroberts, CC BY 4.0, via Sketchfab (modified).</p></div>`;
+      <p class="note">Offline prototype: the other 5 bandmates are bots (multiplayer slots for up to 6). Keyboard + mouse. Press <kbd>\`</kbd> any time for debug tools.<br>Vehicle models via Sketchfab (modified): \"FREE GMC Motorhome reimagined low poly\" by Karol Miklas and \"VW Van\" by jesseroberts (CC BY 4.0); \"Scania Touring (2026)\" by geyges.</p></div>`;
     const keepNames = () => { G.bandName = ($('inBand').value.trim() || 'The Loose Wires'); G.playerName = ($('inName').value.trim() || 'Player 1'); };
     $('inBand').oninput = () => { $('tband').textContent = ($('inBand').value.trim() || 'The Loose Wires').toUpperCase(); };
     el.querySelectorAll('.role').forEach((b) => (b.onclick = () => { keepNames(); pick = b.dataset.r; setupRole(pick, true); render(); }));

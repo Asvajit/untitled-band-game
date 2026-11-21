@@ -236,7 +236,7 @@ export class Van {
       add(box(1.9, 0.9, 0.03, '#0d1418'), 0, F + 1.6, ZB - 0.015); // rear window
       this.mirrors(ZF - 0.1, TOP - 0.55, 0.55, 0.55, true);
       const dm = body, tr = { y: F + 0.55, mat: accent };
-      this.addAutoDoor({ side: -1, z0: 5.58, z1: 6.46, y0: F, y1: F + 1.75, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.7, trim: null });
+      this.addAutoDoor({ side: -1, z0: 5.5, z1: 6.26, y0: F, y1: F + 1.75, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.7, trim: null });
       this.addAutoDoor({ side: -1, z0: -1.98, z1: -1.1, y0: F, y1: F + 1.9, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
       this.addAutoDoor({ side: -1, z0: -5.6, z1: -4.9, y0: F, y1: F + 1.9, kind: 'slide', dir: 1, mat: dm, trim: tr });
       this.addAutoDoor({ side: 1, z0: -0.95, z1: -0.2, y0: F, y1: F + 1.9, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });

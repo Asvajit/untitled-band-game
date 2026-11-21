@@ -17,8 +17,8 @@ async def main():
             await pg.wait_for_timeout(900); await pg.screenshot(path=f'shots/bus_{n}.png')
         await ev("__dbg.sit('driver')"); await pg.wait_for_timeout(1200); await pg.screenshot(path='shots/bus_drive.png'); await ev("__dbg.standUp()")
         # walk up the front stairs
-        await ev("(()=>{const v=__dbg.van,P=__dbg.P; v.local(-(v.dims.W+2.2),0,6.0,P.pos); P.pos.y=__dbg.world.walkH(P.pos.x,P.pos.z,50); P.onboard=false; P.mode='walk'; P.yaw=v.heading+Math.PI/2; P.pitch=0;})()")
-        await pg.wait_for_timeout(1500); await pg.screenshot(path='shots/bus_door.png')
+        await ev("(()=>{const v=__dbg.van,P=__dbg.P; v.local(-(v.dims.W+3.4),0,5.9,P.pos); P.pos.y=__dbg.world.walkH(P.pos.x,P.pos.z,50); P.onboard=false; P.mode='walk'; P.yaw=v.heading+Math.PI/2; P.pitch=0;})()")
+        await pg.wait_for_timeout(1500); await pg.screenshot(path='shots/bus_door.png'); print('door mats', await ev("(()=>{const o=[]; __dbg.van.autoDoors[0].piv.traverse(m=>{if(m.isMesh)o.push([m.material.transparent,+m.material.opacity.toFixed(2),'#'+m.material.color.getHexString()])}); return [o, __dbg.van.autoDoors[0].t]})()"))
         await pg.keyboard.down('KeyW')
         for i in range(30):
             await pg.wait_for_timeout(500)

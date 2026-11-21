@@ -12,6 +12,8 @@ SHOTS = {
  'rvr':    (1, "(()=>{const v=__dbg.van; const p=v.local(6,2.6,-9.5),c=v.local(0,1.7,-1); return [p.x,p.y,p.z,c.x,c.y,c.z]})()"),
  'bus':    (2, "(()=>{const v=__dbg.van; const p=v.local(-7,2.4,10.5),c=v.local(0,1.7,1); return [p.x,p.y,p.z,c.x,c.y,c.z]})()"),
  'busr':   (2, "(()=>{const v=__dbg.van; const p=v.local(-7,2.6,-10),c=v.local(0,1.7,-1); return [p.x,p.y,p.z,c.x,c.y,c.z]})()"),
+ 'busc':   (2, "(()=>{const v=__dbg.van; const p=v.local(-6.5,1.8,11.5),c=v.local(-0.5,1.9,4.5); return [p.x,p.y,p.z,c.x,c.y,c.z]})()"),
+ 'busl':   (2, "(()=>{const v=__dbg.van; const p=v.local(9,2.6,-2),c=v.local(0,1.9,-0.5); return [p.x,p.y,p.z,c.x,c.y,c.z]})()"),
  'crowd':  (2, "(()=>{const w=__dbg.world,s=w.venues[2].stage; return [s.x,s.top+7,s.z+2,s.x,s.top-6,s.z-50]})()"),
 }
 async def main():

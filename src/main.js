@@ -124,9 +124,9 @@ const MODELS = {
     hide: (o, name) => name === 'interior', spin: (o, name) => name === 'clay.001', axles: [4.23, -1.9],
     ladder: { bottom: [-0.87, 0.05, -6.5], top: [-0.87, 3.67, -5.35] },
     holes: [[-3, -1.2, 0.72, 3.15, 0.6, 1.75]] },
-  bus: { url: 'models/bus.glb', scale: [1.06, 1, 1], xShift: -0.16, zShift: 4.1, doorColor: '#d9dad2',
+  bus: { url: 'models/bus.glb', scale: [1.06, 1, 1], xShift: -0.16, zShift: 4.1, doorColor: '#d9dad2', glassColor: '#0b0d10', glassOpacity: 0.95,
     wheels: { r: 0.52, pos: [[1.16, 4.1], [-1.16, 4.1], [1.16, -2.89], [-1.16, -2.89], [1.16, -4.39], [-1.16, -4.39]] }, axles: [4.1, -3.64],
-    holes: [[-3, -1.0, 1.05, 3.35, 5.58, 6.46], [-3, -1.0, 1.05, 3.35, -1.98, -1.1], [-3, -1.0, 1.05, 3.35, -5.6, -4.9], [1.0, 3, 1.05, 3.35, -0.95, -0.2]],
+    holes: [[-3, -1.0, 1.05, 3.1, 5.58, 6.46], [-3, -1.0, 1.05, 3.25, -1.98, -1.1], [-3, -1.0, 1.05, 3.25, -5.6, -4.9], [1.0, 3, 1.05, 3.25, -0.95, -0.2]],
     after: (V) => { for (const k of ['port', 'hatch']) V.hit[k].position.z -= 1.35; V.spec.colZ = [...V.spec.colZ, -6.6]; } },
 };
 async function loadVehicleModels() {

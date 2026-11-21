@@ -236,10 +236,11 @@ export class Van {
       add(box(1.9, 0.9, 0.03, '#0d1418'), 0, F + 1.6, ZB - 0.015); // rear window
       this.mirrors(ZF - 0.1, TOP - 0.55, 0.55, 0.55, true);
       const dm = body, tr = { y: F + 0.55, mat: accent };
-      this.addAutoDoor({ side: -1, z0: 5.58, z1: 6.46, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.7, trim: null });
-      this.addAutoDoor({ side: -1, z0: -1.98, z1: -1.1, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
-      this.addAutoDoor({ side: -1, z0: -5.6, z1: -4.9, y0: F, y1: F + 2.0, kind: 'slide', dir: 1, mat: dm, trim: tr });
-      this.addAutoDoor({ side: 1, z0: -0.95, z1: -0.2, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
+      this.addAutoDoor({ side: -1, z0: 5.58, z1: 6.46, y0: F, y1: F + 1.75, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.7, trim: null });
+      this.addAutoDoor({ side: -1, z0: -1.98, z1: -1.1, y0: F, y1: F + 1.9, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
+      this.addAutoDoor({ side: -1, z0: -5.6, z1: -4.9, y0: F, y1: F + 1.9, kind: 'slide', dir: 1, mat: dm, trim: tr });
+      this.addAutoDoor({ side: 1, z0: -0.95, z1: -0.2, y0: F, y1: F + 1.9, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
+      for (const d of this.autoDoors) d.steps = (this.stairSteps || []).filter((m) => m.userData.stair[0] === d.side && Math.abs(m.userData.stair[1] - d.zm) < 0.5);
     }
   }
   // Use a loaded 3D model as the outside of the vehicle. The box-built walls stay as the walk-in interior:
@@ -267,11 +268,11 @@ export class Van {
       if (!o.isMesh) return;
       const src = o.material, name = src.name || '';
       box.setFromObject(o);
-      if ((cfg.hide && cfg.hide(o, name, box)) || (src.transparent && src.opacity < 0.05)) { o.visible = false; return; }
+      if (cfg.hide && cfg.hide(o, name, box)) { o.visible = false; return; }
       if (cfg.spin && cfg.spin(o, name)) this.shellSpin.push(o.parent && !o.parent.isScene && o.parent.children.length === 1 ? o.parent : o);
       if (!mats.has(src)) {
         let m;
-        if (src.transparent || /^windows?$/i.test(name)) m = new THREE.MeshToonMaterial({ color: '#1c2a33', transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+        if (src.transparent || /^windows?$/i.test(name)) m = new THREE.MeshToonMaterial({ color: cfg.glassColor || '#1c2a33', transparent: true, opacity: cfg.glassOpacity || 0.5, depthWrite: (cfg.glassOpacity || 0) > 0.85, side: THREE.DoubleSide });
         else { m = toon('#ffffff', { map: src.map || null, side: THREE.DoubleSide }); if (!src.map) m.color.copy(src.color); if (cfg.tint) cfg.tint(m, name); }
         if (src.emissiveMap) { m.emissiveMap = src.emissiveMap; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0.25; this.shellLamps.push(m); }
         mats.set(src, cut(m));
@@ -282,9 +283,10 @@ export class Van {
     // everything box-built on the outside becomes "interior view only"
     for (const c of [...this.root.children]) if (c.isMesh && !c.userData.ext && c.material && c.material.visible !== false) this.walls.add(c);
     // doors stay visible from both views, painted to match the model
-    const doorMat = toon(cfg.doorColor);
+    const doorMat = toon(cfg.doorColor), doorGlass = cfg.glassOpacity ? new THREE.MeshToonMaterial({ color: cfg.glassColor || '#1c2a33', transparent: true, opacity: cfg.glassOpacity, depthWrite: true }) : null;
     for (const d of [...(this.autoDoors || []), ...Object.values(this.doors || {})]) {
       this.root.add(d.piv);
+      if (doorGlass) d.piv.traverse((m) => { if (m.isMesh && m.material === this.glass) m.material = doorGlass; });
       d.piv.traverse((m) => { if (m.isMesh && m.material !== this.glass && m.material.visible !== false && m.geometry.parameters.depth > 0.3 && m.geometry.parameters.width > 0.06) m.material = doorMat; });
     }
     // own wheels: either hidden (the model's axles spin) or moved to where the model's wheels are
@@ -557,7 +559,7 @@ export class Van {
     dest.position.set(0, TOP - 0.3, ZF + 0.005); this.walls.add(dest);
     this.lights(ZF + 0.21, ZB, 0.95, -0.25, 1.05, 0.5);
     // door steps
-    const stairs = (s, z0, z1) => { for (let k = 0; k < 3; k++) { const xo = W + (3 - k) * 0.3, m = s > 0 ? bx(W, xo, 0.12, F * (k + 1) / 4, z0, z1, k % 2 ? dark : chrome) : bx(-xo, -W, 0.12, F * (k + 1) / 4, z0, z1, k % 2 ? dark : chrome); m.userData.ext = true; } };
+    const stairs = (s, z0, z1) => { for (let k = 0; k < 3; k++) { const xo = W + 0.1 + (3 - k) * 0.28, h = F * (k + 1) / 4, m = s > 0 ? bx(W, xo, h - 0.08, h, z0 + 0.04, z1 - 0.04, k % 2 ? dark : chrome) : bx(-xo, -W, h - 0.08, h, z0 + 0.04, z1 - 0.04, k % 2 ? dark : chrome); m.userData.ext = true; m.userData.stair = [s, (z0 + z1) / 2]; (this.stairSteps = this.stairSteps || []).push(m); } };
     stairs(-1, 5.6, 6.44); stairs(-1, -1.96, -1.12); stairs(-1, -5.58, -4.92); stairs(1, -0.93, -0.22);
     // ---- interior (floor plan, front → back)
     const ip = { parent: this.interior };
@@ -955,6 +957,7 @@ export class Van {
         if (d.kind === 'hinge') d.piv.rotation.y = -d.side * 1.25 * e;
         else { d.piv.position.x = d.x + d.side * 0.1 * Math.min(1, e * 5); d.piv.position.z = d.zh + d.dir * (d.L + 0.02) * e; }
         if (d.t > 0.35) { d.col[2] = -99; d.col[3] = -98; } else for (let i = 0; i < 6; i++) d.col[i] = d.closed[i];
+        if (d.steps) for (const st of d.steps) st.visible = d.t > 0.02; // steps fold out with the door
       }
     }
     for (const r of this.rack) { r.g.position.x = r.base.x + (Math.random() - 0.5) * this.shake * 0.05; r.g.position.y = r.base.y + Math.random() * this.shake * 0.06; }

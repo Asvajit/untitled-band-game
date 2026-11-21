@@ -11,19 +11,15 @@ const CTRL = [[0, -50], [0, 60], [-30, 170], [-110, 240], [-170, 340], [-150, 46
   [160, 2060], [230, 2170], [270, 2300], [220, 2420], [100, 2480], [-20, 2570], [-50, 2710], [20, 2820], [150, 2880], [240, 2960], [230, 3060], [130, 3100], [40, 3140], [50, 3200], [110, 3214], [190, 3214], [270, 3245],
   [320, 3340], [330, 3460], [330, 3600], [300, 3700], [220, 3760], [130, 3800], [70, 3880], [60, 4000], [90, 4120], [180, 4180], [220, 4260], [220, 4380], [250, 4450], [330, 4462]];
 
-// add tighter S-bends to the countryside part of the route (start → bar approach)
-function wiggleCountry(ctrl, endIdx, step = 60, amp = 32) {
-  const base = new THREE.CatmullRomCurve3(ctrl.slice(0, endIdx + 1).map((p) => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal');
-  const n = Math.floor(base.getLength() / step), pts = base.getSpacedPoints(n), out = [];
-  for (let k = 0; k <= n; k++) {
-    const t = base.getTangentAt(Math.min(1, k / n));
-    const fade = Math.min(1, k / 3, (n - k) / 3);
-    const off = amp * fade * Math.sin(k * 1.85) * (0.75 + 0.25 * Math.sin(k * 0.37));
-    out.push([pts[k].x - t.z * off, pts[k].z + t.x * off]);
-  }
-  return [...out, ...ctrl.slice(endIdx + 1)];
-}
-
+// Part 1: opening sweepers, then the Hollow Pass switchbacks up the hill, a ridge, and a winding descent past the falls
+const PART1 = [[0, -50], [0, 60], [-10, 160], [-70, 240], [-150, 290], [-205, 365], [-180, 440], [-125, 468],
+  [-40, 472], [70, 472], [118, 480], [146, 505], [118, 530], [70, 538],           // traverse 1 + hairpin
+  [-40, 538], [-90, 538], [-138, 546], [-166, 571], [-138, 596], [-90, 604],      // traverse 2 + hairpin
+  [-40, 604], [70, 604], [118, 612], [146, 637], [118, 662], [70, 670],           // traverse 3 + hairpin
+  [-30, 670], [-100, 678], [-150, 712], [-165, 780],                              // traverse 4, up onto the ridge
+  [-140, 850], [-70, 905], [20, 945], [100, 1010], [132, 1100], [95, 1185], [15, 1240],
+  [-70, 1290], [-140, 1355], [-160, 1440], [-110, 1520], [-20, 1565], [70, 1610], [128, 1690], [100, 1770]];
+const ROUTE0 = [...PART1, ...CTRL.slice(20)];
 
 export function sampleRoad(road, step = 2) {
   const curve = new THREE.CatmullRomCurve3(road.map((p) => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal');
@@ -36,7 +32,7 @@ export function nearestS(sr, x, z) {
   return { s: bi * sr.step, d: Math.sqrt(bd), i: bi, x: sr.pts[bi].x, z: sr.pts[bi].z };
 }
 export function defaultLevel() {
-  const road = wiggleCountry(CTRL, 21).map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
+  const road = ROUTE0.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
   const sr = sampleRoad(road), L = sr.L;
   const at = (s) => { const p = sr.pts[Math.round(Math.max(0, Math.min(L, s)) / sr.step)]; return [Math.round(p.x), Math.round(p.z)]; };
   const venues = [[-20, 1956], [150, 3150], [330, 4350]];

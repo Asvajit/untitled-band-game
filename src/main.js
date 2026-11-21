@@ -1160,6 +1160,8 @@ function frame() {
   inp.solar = clamp(1 - smoothstep(0.55, 0.85, G.tod), 0, 1) * (1 - (G.rainAmt || 0) * 0.92);
   inp.engineVol = G.perf ? 0 : (P.onboard || P.mode === 'drive') ? 1 : clamp(1 - van.pos.distanceTo(camera.position) / 50, 0, 1);
   van.godMode = G.dbg.god; van.automatic = G.automatic;
+  inp.grip = 1 - 0.3 * (G.rainAmt || 0);
+  inp.playerLocal = P.mode === 'walk' ? van.root.worldToLocal(_v2.copy(P.pos)).clone() : null;
   van.roof.visible = !(G.dbg.third && P.onboard && P.mode === 'walk');
   const carry = P.mode === 'walk' && P.onboard && G.mode !== 'title';
   const h0 = van.heading;

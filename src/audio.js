@@ -145,6 +145,7 @@ export class AudioEngine {
       case 'honk': { this.osc('square', 392, t, 0.5, g); this.osc('square', 494, t, 0.5, g); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.13, t + 0.02); g.gain.setTargetAtTime(0.0001, t + 0.45, 0.03); break; }
       case 'clunk': { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 400; f.connect(g); this.noise(t, 0.3, f); this.osc('sine', 90, t, 0.25, g); this._env(g, t, 0.002, 0.8, 0.25); break; }
       case 'grind': { const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2200; f.Q.value = 2; f.connect(g); this.noise(t, 0.45, f); const o = this.osc('sawtooth', 70, t, 0.4, g); o.frequency.linearRampToValueAtTime(40, t + 0.4); this._env(g, t, 0.01, 0.35, 0.4); break; }
+      case 'skid': { const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 500; f.Q.value = 5; f.connect(g); this.noise(t, 0.3, f); this._env(g, t, 0.03, 0.09, 0.26); break; }
       case 'shift': { const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.connect(g); this.noise(t, 0.08, f); this._env(g, t, 0.001, 0.35, 0.07); break; }
       case 'crank': { for (let i = 0; i < 6; i++) { const gg = c.createGain(); gg.connect(out); this.osc('sawtooth', 55, t + i * 0.11, 0.08, gg); this._env(gg, t + i * 0.11, 0.005, 0.12, 0.08); } g.disconnect(); break; }
       case 'stall': { const o = this.osc('sawtooth', 40, t, 0.5, g); o.frequency.linearRampToValueAtTime(15, t + 0.5); this._env(g, t, 0.005, 0.2, 0.5); break; }

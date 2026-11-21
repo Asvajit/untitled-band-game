@@ -15,7 +15,7 @@ const P2 = Math.PI / 2;
 export const SPECS = {
   van: {
     name: 'Van', title: 'the camper van', F: 0.62, W: 1.05, IW: 0.97, ZB: -2.4, ZF: 2.15, TOP: 2.54, driverX: 0.45,
-    wheelR: 0.38, track: 0.98, axleF: 1.35, axleR: -1.45, wheelbase: 3.4, power: 1.1, vmax: 21, maxSteer: 0.5, steerV: 8, steerRate: 3, drain: 0.4, solar: false,
+    wheelR: 0.38, track: 0.98, axleF: 1.35, axleR: -1.45, wheelbase: 3.4, power: 1.1, vmax: 21, maxSteer: 0.5, steerV: 8, steerRate: 3, drain: 0.4, solar: false, grip: 7.2,
     colZ: [1.3, -1.3], colR: 1.15, orbit: 9, chase: [4.2, -10], exit: [-2.6, -0.55], mirrorCam: [0, 2.2, -2.7], mirror: [0.0, 1.62],
     smoke: [0.5, 0.9, -2.7], wipers: [[0.35, 0.72], [-0.55, 0.72]],
     seats: {
@@ -31,7 +31,7 @@ export const SPECS = {
   },
   rv: {
     name: 'RV', title: 'the RV', F: 1.0, W: 1.45, IW: 1.35, ZB: -5.8, ZF: 5.3, TOP: 3.45, driverX: 0.72,
-    wheelR: 0.58, track: 1.5, axleF: 3.75, axleR: -3.4, wheelbase: 6.2, power: 1.6, vmax: 32, maxSteer: 0.55, steerV: 16, steerRate: 4, drain: 1, solar: true,
+    wheelR: 0.58, track: 1.5, axleF: 3.75, axleR: -3.4, wheelbase: 6.2, power: 1.6, vmax: 32, maxSteer: 0.55, steerV: 16, steerRate: 4, drain: 1, solar: true, grip: 6.0,
     colZ: [4.6, 1.6, -1.6, -4.6], colR: 1.6, orbit: 13, chase: [6, -15], exit: [-4.2, 2.1], mirrorCam: [0, 3.0, -6.2], mirror: [0.12, 1.82],
     smoke: [0, 1.8, 5.8], wipers: [[0.62, 0.85], [-0.38, 0.85]],
     roofY: 3.57,
@@ -50,7 +50,7 @@ export const SPECS = {
   },
   bus: {
     name: 'Tour Bus', title: 'the tour bus', F: 1.0, W: 1.28, IW: 1.18, ZB: -6.6, ZF: 6.6, TOP: 3.15, driverX: 0.72,
-    wheelR: 0.52, track: 1.2, axleF: 4.9, axleR: -4.2, wheelbase: 8.6, power: 1.22, vmax: 26, maxSteer: 0.52, steerV: 13, steerRate: 3, drain: 0.5, solar: false,
+    wheelR: 0.52, track: 1.2, axleF: 4.9, axleR: -4.2, wheelbase: 8.6, power: 1.22, vmax: 26, maxSteer: 0.52, steerV: 13, steerRate: 3, drain: 0.5, solar: false, grip: 5.2,
     colZ: [5.6, 2.8, 0, -2.8, -5.6], colR: 1.4, orbit: 17, chase: [7.5, -19], exit: [-3.4, 6.0], cams: true,
     smoke: [0, 3.4, -6.2], wipers: [[0.75, 1.05], [-0.55, 1.05]],
     seats: {
@@ -107,6 +107,7 @@ export class Van {
     if (this.type === 'van') this.buildVan(); else if (this.type === 'bus') this.buildBus(); else this.buildRV();
     this.buildCab();
     this.buildWheels();
+    this.dress();
     // seat hitboxes
     for (const [k, s] of Object.entries(S.seats)) this.hb('seat_' + k, s.p[0] - 0.35, s.p[0] + 0.35, s.p[1] + 0.1, s.p[1] + 1.1, s.p[2] - 0.35, s.p[2] + 0.35);
     this.smoke = [];
@@ -121,10 +122,15 @@ export class Van {
     this.meshBx(x - w, x + w, F, F + 0.48, z - 0.3, z + 0.3, toon(col), ip);
     this.meshBx(x - w, x + w, F + 0.48, F + 1.35, z - 0.4, z - 0.25, toon(col2), ip);
   }
-  lights(front, back, hx, hy, tx, ty) {
+  lights(front, back, hx, hy, tx, ty, round = 0) {
     const F = this.spec.F, R = this.root, bx = this.meshBx;
     this.lampMat = basic('#6b6352'); this.tailMat = basic('#5a1a1a');
-    for (const s of [-1, 1]) bx(s * hx - 0.2, s * hx + 0.2, F + hy, F + hy + 0.25, front, front + 0.05, this.lampMat, { solid: false });
+    for (const s of [-1, 1]) {
+      if (round) {
+        const ring = new THREE.Mesh(new THREE.CylinderGeometry(round + 0.035, round + 0.035, 0.06, 14), toon('#c9c6c0')); ring.rotation.x = Math.PI / 2; ring.position.set(s * hx, F + hy + 0.12, front); this.walls.add(ring);
+        const lens = new THREE.Mesh(new THREE.CylinderGeometry(round, round, 0.07, 14), this.lampMat); lens.rotation.x = Math.PI / 2; lens.position.set(s * hx, F + hy + 0.12, front + 0.01); this.walls.add(lens);
+      } else bx(s * hx - 0.2, s * hx + 0.2, F + hy, F + hy + 0.25, front, front + 0.05, this.lampMat, { solid: false });
+    }
     for (const s of [-1, 1]) bx(s * tx - 0.14, s * tx + 0.14, F + ty, F + ty + 0.4, back - 0.05, back, this.tailMat, { solid: false });
     this.headL = [];
     for (const s of [-1, 1]) {
@@ -133,15 +139,130 @@ export class Van {
     }
   }
   buildWheels() {
-    const S = this.spec;
+    const S = this.spec, R = S.wheelR, wide = 0.34;
     this.wheels = [];
     const zs = this.type === 'bus' ? [S.axleF, S.axleR + 0.65, S.axleR - 0.65] : [S.axleF, S.axleR];
-    for (const z of zs) for (const x of [S.track, -S.track]) {
-      const piv = new THREE.Group(); piv.position.set(x, S.wheelR, z); this.root.add(piv);
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(S.wheelR, S.wheelR, 0.38, 12), toon('#1c1b20')); w.rotation.z = Math.PI / 2; w.castShadow = true; piv.add(w);
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(S.wheelR * 0.48, S.wheelR * 0.48, 0.42, 8), toon(this.type === 'van' ? '#e8e2d4' : '#5f7b8c')); hub.rotation.z = Math.PI / 2; piv.add(hub);
-      this.wheels.push({ piv, w, front: z === S.axleF });
+    const tyre = toon('#1c1b20'), wall = toon('#2c2a30'), rim = toon(this.type === 'van' ? '#e8e2d4' : this.type === 'bus' ? '#b9bcc4' : '#d8d2c4'), well = basic('#0c0b0e'), flare = toon(this.type === 'van' ? '#b85e2c' : this.type === 'bus' ? '#15151a' : '#8a4a2e');
+    const xv = S.W + 0.04 - wide / 2; // outer face sits just proud of the body, inside an arch
+    for (const z of zs) for (const s of [1, -1]) {
+      const piv = new THREE.Group(); piv.position.set(s * xv, R, z); this.root.add(piv);
+      const spin = new THREE.Group(); piv.add(spin);
+      const mk = (geo, mat, x = 0) => { const m = new THREE.Mesh(geo, mat); m.rotation.z = Math.PI / 2; m.position.x = x; m.castShadow = true; spin.add(m); return m; };
+      mk(new THREE.CylinderGeometry(R, R, wide, 14), tyre);
+      mk(new THREE.CylinderGeometry(R * 0.8, R * 0.8, wide + 0.02, 14), wall);
+      mk(new THREE.CylinderGeometry(R * 0.6, R * 0.6, wide + 0.05, 10), rim);
+      mk(new THREE.CylinderGeometry(R * 0.2, R * 0.2, wide + 0.1, 8), toon('#8d8a86'));
+      for (let k = 0; k < 5; k++) { const lug = new THREE.Mesh(new THREE.BoxGeometry(0.03, R * 0.1, R * 0.1), toon('#55524e')); const a = k / 5 * 6.283; lug.position.set(s * (wide / 2 + 0.03), Math.cos(a) * R * 0.4, Math.sin(a) * R * 0.4); spin.add(lug); }
+      // wheel well + arch flare on the body side
+      const wl = new THREE.Mesh(new THREE.CircleGeometry(R + 0.1, 14, 0, Math.PI), well); wl.rotation.y = s * Math.PI / 2; wl.position.set(s * (S.W + 0.012), R - 0.02, z); this.walls.add(wl);
+      const fl = new THREE.Mesh(new THREE.TorusGeometry(R + 0.12, 0.05, 5, 12, Math.PI), flare); fl.rotation.y = Math.PI / 2; fl.position.set(s * (S.W + 0.02), R - 0.02, z); fl.scale.z = 1.6; this.walls.add(fl);
+      // mud flap behind the wheel
+      const mf = new THREE.Mesh(new THREE.BoxGeometry(0.03, R * 0.9, wide), toon('#18171b')); mf.rotation.y = Math.PI / 2; mf.position.set(s * xv, R * 0.75, z - R - 0.16); this.walls.add(mf);
+      this.wheels.push({ piv, w: spin, front: z === S.axleF });
     }
+  }
+  // exterior detail so each vehicle reads as a real one (visual only; no collision)
+  dress() {
+    const S = this.spec, F = S.F, W = S.W, ZB = S.ZB, ZF = S.ZF, TOP = S.TOP, P2_ = Math.PI / 2;
+    const add = (mesh, x, y, z, parent = this.walls) => { mesh.position.set(x, y, z); mesh.castShadow = true; parent.add(mesh); return mesh; };
+    const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof m === 'string' ? toon(m) : m);
+    const chrome = toon('#c9c6c0'), dark = toon('#1c1b20'), amber = basic('#ffb347'), red = basic('#c0281e');
+    // a curved panel across the front: vertical cylinder segment whose chord spans the body width
+    const curved = (R, y0, y1, zFace, mat, halfW = W) => { const half = Math.asin(Math.min(0.999, halfW / R)); const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, y1 - y0, 12, 1, false, -half, half * 2), mat); return add(m, 0, (y0 + y1) / 2, zFace - R * Math.cos(half)); };
+    if (this.type === 'van') {
+      const lower = toon('#d9763a'), upper = toon('#efe6d2'), BL = F + 0.82;
+      // rounded two-tone nose with a curved bumper
+      curved(2.0, 0.42, BL - 0.3, ZF + 0.25, lower); curved(2.005, BL - 0.3, BL + 0.02, ZF + 0.25, upper);
+      curved(2.09, 0.34, 0.54, ZF + 0.25, chrome, W + 0.05);
+      for (const s of [-1, 1]) add(box(0.09, 0.3, 0.08, chrome), s * 0.42, 0.5, ZF + 0.6); // overriders
+      const emb = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.04, 16), chrome); emb.rotation.x = P2_; add(emb, 0, BL - 0.42, ZF + 0.545);
+      const emb2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05, 16), lower); emb2.rotation.x = P2_; add(emb2, 0, BL - 0.42, ZF + 0.55);
+      for (const s of [-1, 1]) { const ind = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 10), amber); ind.rotation.x = P2_; add(ind, s * 0.74, F + 0.02, ZF + 0.4); }
+      // split windscreen: centre pillar + visor, wipers already there
+      add(box(0.07, 0.9, 0.06, upper), 0, BL + 0.44, ZF + 0.01);
+      const visor = add(box(W * 2 + 0.06, 0.05, 0.3, upper), 0, F + 1.72, ZF + 0.12); visor.rotation.x = 0.25;
+      // sills, belt-line trim, rear bumper details, tail-light housings, roof gutter
+      for (const s of [-1, 1]) { add(box(0.03, 0.05, ZF - ZB, chrome), s * (W + 0.015), BL + 0.01, (ZF + ZB) / 2); add(box(0.05, 0.06, ZF - ZB + 0.1, upper), s * (W + 0.02), TOP + 0.02, (ZF + ZB) / 2); }
+      for (const s of [-1, 1]) add(box(0.09, 0.3, 0.08, chrome), s * 0.45, 0.5, ZB - 0.18);
+      add(box(0.5, 0.16, 0.02, '#e8e2d0'), 0, F + 0.05, ZB - 0.03); // number plate
+      add(box(0.7, 0.05, 0.05, chrome), 0, F + 0.72, ZB - 0.04); // tailgate handle
+      this.mirrors(1.5, F + 1.0, 0.22, 0.22);
+      this.addAutoDoor({ side: -1, z0: -1.2, z1: 0.1, y0: F, y1: F + 1.75, kind: 'slide', dir: -1, mat: lower, glassFrom: BL, trim: null });
+    } else if (this.type === 'rv') {
+      const cream = toon('#e6dcc4'), stripe = toon('#8a4a2e'), stripe2 = toon('#c9763c');
+      // sloped hood, grille surround, front apron
+      const hood = add(box(W * 2 - 0.1, 0.06, 0.82, cream), 0, F + 0.86, ZF + 0.38); hood.rotation.x = 0.26;
+      add(box(2.75, 0.06, 0.05, chrome), 0, F + 0.58, ZF + 0.79); add(box(2.75, 0.06, 0.05, chrome), 0, F + 0.07, ZF + 0.79);
+      for (let k = 0; k < 4; k++) add(box(2.5, 0.03, 0.03, chrome), 0, F + 0.17 + k * 0.1, ZF + 0.79);
+      for (const s of [-1, 1]) { const ind = add(box(0.2, 0.1, 0.04, amber), s * 0.98, F - 0.08, ZF + 0.79); void ind; }
+      add(box(0.5, 0.16, 0.02, '#e8e2d0'), 0, 0.62, ZF + 0.96);
+      // cab-over front: window band + marker lights, windscreen pillars and visor
+      for (let k = -2; k <= 2; k++) add(box(0.12, 0.06, 0.04, amber), k * 0.5, TOP + 0.02, 4.62);
+      for (const s of [-1, 0, 1]) add(box(0.07, 1.05, 0.07, cream), s * (S.IW - 0.02), F + 1.47, ZF + 0.01);
+      const visor = add(box(W * 2, 0.05, 0.36, cream), 0, F + 2.08, ZF + 0.15); visor.rotation.x = 0.2;
+      // awning roll (door side), roof AC shroud, vents
+      const aw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5.4, 8), cream); aw.rotation.x = P2_; add(aw, -W - 0.11, TOP - 0.12, -1.7);
+      for (const z of [-4.4, 1.0]) { const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.12, 8), stripe); cap.rotation.x = P2_; add(cap, -W - 0.11, TOP - 0.12, z); add(box(0.05, 0.3, 0.05, chrome), -W - 0.05, TOP - 0.3, z); }
+      const awStripe = new THREE.Mesh(new THREE.CylinderGeometry(0.104, 0.104, 1.2, 8), stripe2); awStripe.rotation.x = P2_; add(awStripe, -W - 0.11, TOP - 0.12, -1.7);
+      // skirt, running boards, service hatches, fuel/charge door
+      for (const s of [-1, 1]) { add(box(0.03, 0.2, ZF - ZB - 0.2, '#b9ad94'), s * (W + 0.012), F - 0.14, (ZF + ZB) / 2 - 0.1); for (const z of [-2.2, -0.6]) { add(box(0.02, 0.5, 0.9, '#d8cdb2'), s * (W + 0.012), F + 0.3, z); add(box(0.03, 0.04, 0.12, chrome), s * (W + 0.025), F + 0.46, z + 0.3); } }
+      // back: spare wheel, bumper, plate, high brake light
+      const spare = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.2, 14), dark); spare.rotation.x = P2_; add(spare, -0.55, F + 0.58, ZB - 0.12);
+      const spareCap = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.22, 14), cream); spareCap.rotation.x = P2_; add(spareCap, -0.55, F + 0.58, ZB - 0.13);
+      add(box(W * 2 + 0.1, 0.22, 0.2, '#8a3a22'), 0, 0.6, ZB - 0.12); add(box(0.5, 0.16, 0.02, '#e8e2d0'), 0.2, 0.62, ZB - 0.23);
+      add(box(0.6, 0.07, 0.04, red), 0, TOP - 0.2, ZB - 0.02);
+      this.mirrors(4.55, F + 1.45, 0.34, 0.34);
+      this.addAutoDoor({ side: -1, z0: 1.5, z1: 2.7, y0: F, y1: F + 2.15, kind: 'hinge', mat: cream, glassFrom: F + 1.15, trim: { y: F + 0.62, mat: stripe } });
+    } else {
+      const body = toon('#23252e'), accent = toon('#7af0ff'), panel = toon('#2f323d');
+      // rounded front cap, raked visor, grille, plate
+      curved(4.2, 0.44, F + 0.85, ZF + 0.2, body); curved(4.28, 0.4, 0.74, ZF + 0.2, chrome, W + 0.04);
+      curved(4.205, F + 0.2, F + 0.3, ZF + 0.2, accent);
+      for (let k = 0; k < 4; k++) add(box(1.1, 0.03, 0.03, dark), 0, F - 0.25 + k * 0.09, ZF + 0.41);
+      add(box(0.5, 0.16, 0.02, '#e8e2d0'), 0, 0.57, ZF + 0.43);
+      const visor = add(box(W * 2, 0.07, 0.5, body), 0, TOP - 0.1, ZF + 0.2); visor.rotation.x = 0.3;
+      for (const s of [-1, 1]) add(box(0.09, TOP - F - 0.9, 0.09, body), s * (S.IW + 0.02), (F + 0.85 + TOP) / 2, ZF + 0.01);
+      for (let k = -2; k <= 2; k++) add(box(0.14, 0.05, 0.04, amber), k * 0.45, TOP + 0.1, ZF - 0.02);
+      // sides: chrome sill, luggage-bay hatches between the axles, roof-edge trim, indicator repeaters
+      for (const s of [-1, 1]) {
+        add(box(0.03, 0.06, ZF - ZB, chrome), s * (W + 0.014), F - 0.5, (ZF + ZB) / 2);
+        add(box(0.05, 0.08, ZF - ZB, panel), s * (W + 0.02), TOP + 0.04, (ZF + ZB) / 2);
+        for (let k = 0; k < 4; k++) { const z = 2.9 - k * 1.55; add(box(0.02, 0.5, 1.4, panel), s * (W + 0.012), F - 0.2, z); add(box(0.03, 0.04, 0.14, chrome), s * (W + 0.026), F - 0.06, z); }
+        add(box(0.03, 0.08, 0.16, amber), s * (W + 0.015), F + 0.3, ZF - 1.0);
+      }
+      // back: engine cover frame, bumper, plate, high-level lights
+      add(box(W * 2 + 0.06, 0.26, 0.16, chrome), 0, 0.56, ZB - 0.08); add(box(0.5, 0.16, 0.02, '#e8e2d0'), 0, F + 0.9, ZB - 0.02);
+      for (const s of [-1, 1]) add(box(0.3, 0.07, 0.04, red), s * 0.9, TOP - 0.15, ZB - 0.02);
+      add(box(1.9, 0.9, 0.03, '#0d1418'), 0, F + 1.6, ZB - 0.015); // rear window
+      this.mirrors(ZF - 0.1, TOP - 0.55, 0.55, 0.55, true);
+      const dm = body, tr = { y: F + 0.55, mat: accent };
+      this.addAutoDoor({ side: -1, z0: 5.58, z1: 6.46, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.7, trim: null });
+      this.addAutoDoor({ side: -1, z0: -1.98, z1: -1.1, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
+      this.addAutoDoor({ side: -1, z0: -5.6, z1: -4.9, y0: F, y1: F + 2.0, kind: 'slide', dir: 1, mat: dm, trim: tr });
+      this.addAutoDoor({ side: 1, z0: -0.95, z1: -0.2, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
+    }
+  }
+  // side mirrors on arms
+  mirrors(z, y, armLen, headH, top = false) {
+    const S = this.spec, dark = toon('#1c1b20'), glassM = basic('#9fc4d6');
+    for (const s of [1, -1]) {
+      const g = new THREE.Group(); g.position.set(s * S.W, y, z); this.walls.add(g);
+      if (top) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, armLen), dark); arm.position.set(s * 0.1, headH / 2 + 0.1, armLen / 2); arm.rotation.x = 0.35; g.add(arm); const head = new THREE.Mesh(new THREE.BoxGeometry(0.07, headH, 0.2), dark); head.position.set(s * 0.14, 0, armLen); g.add(head); const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.16, headH - 0.06), glassM); gl.position.set(s * 0.14, 0, armLen - 0.036); gl.rotation.y = Math.PI; g.add(gl); }
+      else { const arm = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.04, 0.04), dark); arm.position.set(s * armLen / 2, 0, 0); g.add(arm); const head = new THREE.Mesh(new THREE.BoxGeometry(0.06, headH, 0.2), dark); head.position.set(s * (armLen + 0.02), 0.02, 0); head.rotation.y = s * 0.25; g.add(head); const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.16, headH - 0.06), glassM); gl.position.set(s * (armLen + 0.02), 0.02, -0.034); gl.rotation.y = Math.PI + s * 0.25; g.add(gl); }
+    }
+  }
+  // a door panel that opens by itself when a walking player comes near, and shuts behind them
+  addAutoDoor({ side, z0, z1, y0, y1, kind = 'slide', dir = -1, mat, glassFrom = null, trim = null }) {
+    const S = this.spec, x = side * (S.W - 0.045), L = z1 - z0, zh = kind === 'hinge' ? z1 : (z0 + z1) / 2, zc = (z0 + z1) / 2 - zh;
+    const piv = new THREE.Group(); piv.position.set(x, 0, zh); this.walls.add(piv);
+    const part = (ya, yb, m, cast = true, w = 0.07) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, yb - ya, L - 0.03), m); mesh.position.set(0, (ya + yb) / 2, zc); mesh.castShadow = cast; piv.add(mesh); return mesh; };
+    const gf = glassFrom ?? y1;
+    part(y0 - 0.25, gf, mat);
+    if (gf < y1 - 0.15) { part(gf, y1 - 0.1, this.glass, false, 0.04); part(y1 - 0.1, y1, mat); for (const e of [-1, 1]) { const fr = new THREE.Mesh(new THREE.BoxGeometry(0.07, y1 - gf, 0.06), mat); fr.position.set(0, (gf + y1) / 2, zc + e * (L / 2 - 0.045)); piv.add(fr); } }
+    if (trim) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, L - 0.03), trim.mat); t.position.set(0, trim.y, zc); piv.add(t); }
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.18), toon('#c9c6c0')); handle.position.set(side * 0.05, Math.min(gf, y0 + 1.0) - 0.12, zc + (kind === 'hinge' ? -1 : dir) * -(L / 2 - 0.2)); piv.add(handle);
+    const col = [side > 0 ? S.IW : -S.W, side > 0 ? S.W : -S.IW, y0 - 0.3, y1, z0, z1]; this.cols.push(col);
+    (this.autoDoors = this.autoDoors || []).push({ piv, side, kind, dir, L, x, zh, zm: (z0 + z1) / 2, y0, y1, t: 0, col, closed: col.slice() });
   }
   logo(lines, color, placements) {
     const tex = neonTex(lines, { w: 512, h: 160, color, size: [56, 30], font: 'Bungee' });
@@ -206,8 +327,7 @@ export class Van {
     bx(-W - 0.04, W + 0.04, 0.35, 0.55, ZF + 0.24, ZF + 0.38, chrome);
     bx(-W - 0.04, W + 0.04, 0.35, 0.55, ZB - 0.16, ZB, chrome);
     // round headlights
-    for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.04, 12), chrome); h.rotation.x = P2; h.position.set(s * 0.72, F + 0.32, ZF + 0.27); this.walls.add(h); }
-    this.lights(ZF + 0.28, ZB, 0.72, 0.2, 0.85, 0.15);
+    this.lights(ZF + 0.43, ZB, 0.7, 0.2, 0.85, 0.15, 0.15);
     // side door step
     bx(-W - 0.35, -W, 0.18, 0.34, -1.15, 0.05, chrome);
     // interior
@@ -301,7 +421,7 @@ export class Van {
     this.logo(['THE LOOSE WIRES', 'WORLD TOUR'], '#c9763c', [[3.4, 1.0, W + 0.02, F + 1.5, -2.2, P2], [2.2, 0.65, -W - 0.02, F + 2.5, -1.6, -P2]]);
     bx(-W - 0.62, -W - 0.3, 0.2, 0.36, 1.55, 2.65, chrome);
     bx(-W - 0.3, -W, 0.2, 0.68, 1.55, 2.65, chrome);
-    this.lights(ZF + 0.8, ZB, 0.95, 0.15, 1.15, 0.3);
+    this.lights(ZF + 0.78, ZB, 0.98, 0.12, 1.15, 0.3, 0.17);
     // interior
     const I = this.interior, ip = { parent: I };
     bx(-IW, IW, TOP - 0.02, TOP, ZB + 0.1, 3.2, toon('#a88a66'), { ...ip, solid: false, cast: false });
@@ -678,7 +798,8 @@ export class Van {
     this.offroad = !onRoad;
     let a = aDrive - 9.8 * Math.sin(this.pitch);
     const roll = (onRoad ? 0.12 : 0.9) + 0.0022 * this.v * this.v;
-    const decel = (brake > 0 ? 9 * brake : 0) + (this.handbrake ? 7 : 0) + roll;
+    const hold = (throttle < 0.05 && Math.abs(this.v) < 1.2 && !(coupled && Math.abs(this.v) > 0.3)) ? 2.6 : 0; // hill hold when stopped
+    const decel = (brake > 0 ? 9 * brake : 0) + (this.handbrake ? 7 : 0) + roll + hold;
     this.v += a * dt;
     const dv = decel * dt;
     if (Math.abs(this.v) <= dv) { if (Math.abs(a) <= decel) this.v = 0; }
@@ -686,7 +807,21 @@ export class Van {
     this.v = clamp(this.v, -8, S.vmax);
     const maxSteer = S.maxSteer / (1 + Math.abs(this.v) / S.steerV);
     this.steer = lerp(this.steer, inp.steer * maxSteer, Math.min(1, dt * S.steerRate));
-    this.heading += (this.v / S.wheelbase) * Math.tan(this.steer) * dt;
+    // tyres only have so much grip: too fast into a bend and the vehicle runs wide and scrubs speed
+    let yawRate = (this.v / S.wheelbase) * Math.tan(this.steer);
+    const latWant = this.v * yawRate, maxLat = S.grip * (onRoad ? 1 : 0.65) * (inp.grip ?? 1);
+    this.slip = Math.max(0, Math.abs(latWant) / maxLat - 1);
+    if (this.slip > 0) {
+      yawRate *= maxLat / Math.abs(latWant);
+      this.v -= Math.sign(this.v) * Math.min(Math.abs(this.v), (1.5 + this.slip * 6) * dt);
+      this.skidT = (this.skidT || 0) - dt;
+      if (this.skidT <= 0 && Math.abs(this.v) > 6) { this.audio.play('skid'); this.skidT = 0.22; }
+    }
+    this.heading += yawRate * dt;
+    // body lean in corners, squat/dive on throttle and brakes
+    const latNow = this.v * yawRate, accel = (this.v - (this.vPrev ?? this.v)) / Math.max(dt, 1e-3); this.vPrev = this.v;
+    this.lean = lerp(this.lean || 0, clamp(-latNow * S.TOP * 0.0042, -0.07, 0.07), Math.min(1, dt * 5));
+    this.squat = lerp(this.squat || 0, clamp(accel * 0.006, -0.035, 0.03), Math.min(1, dt * 5));
     this.pos.x += fwd.x * this.v * dt; this.pos.z += fwd.z * this.v * dt; this.odometer += Math.abs(this.v * dt);
     this.collide();
     // suspension from wheels
@@ -733,6 +868,19 @@ export class Van {
       const want = d.open ? -d.side * 1.15 : 0;
       d.ang += (want - d.ang) * Math.min(1, dt * 7); d.piv.rotation.y = d.ang;
       if (d.open) { d.col[2] = -99; d.col[3] = -98; } else { for (let i = 0; i < 6; i++) d.col[i] = d.closed[i]; }
+    }
+    if (this.autoDoors) {
+      const pl = inp.playerLocal;
+      for (const d of this.autoDoors) {
+        const near = pl && Math.abs(pl.z - d.zm) < d.L / 2 + 1.25 && Math.abs(pl.x - d.x) < 2.1 && pl.y > d.y0 - 1.4 && pl.y < d.y1;
+        const was = d.t;
+        d.t = clamp(d.t + (near ? 1 : -1) * dt * 4, 0, 1);
+        if ((was === 0 && d.t > 0) || (was === 1 && d.t < 1)) this.audio.play('door');
+        const e = d.t * d.t * (3 - 2 * d.t);
+        if (d.kind === 'hinge') d.piv.rotation.y = -d.side * 1.25 * e;
+        else { d.piv.position.x = d.x + d.side * 0.1 * Math.min(1, e * 5); d.piv.position.z = d.zh + d.dir * (d.L + 0.02) * e; }
+        if (d.t > 0.35) { d.col[2] = -99; d.col[3] = -98; } else for (let i = 0; i < 6; i++) d.col[i] = d.closed[i];
+      }
     }
     for (const r of this.rack) { r.g.position.x = r.base.x + (Math.random() - 0.5) * this.shake * 0.05; r.g.position.y = r.base.y + Math.random() * this.shake * 0.06; }
     if (this.health < 35 && this.engineOn) {
@@ -792,7 +940,7 @@ export class Van {
   }
   updateTransform(dt = 0) {
     this.root.position.set(this.pos.x, this.y, this.pos.z);
-    this.root.rotation.set(-this.pitch, this.heading, this.roll, 'YXZ');
+    this.root.rotation.set(-this.pitch - (this.squat || 0), this.heading, this.roll + (this.lean || 0), 'YXZ');
     this.wheelRot += this.v * dt / this.spec.wheelR;
     for (const wh of this.wheels) { wh.w.rotation.x = this.wheelRot; wh.piv.rotation.y = wh.front ? this.steer : 0; }
     this.root.updateMatrixWorld(true);

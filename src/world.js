@@ -79,7 +79,7 @@ export class World {
     for (let i = 0; i <= N; i++) {
       const s = i * this.step, b = this.biome(s);
       const amp = 1.25 * b.c + 0.9 * b.d + 0.08 * b.u;
-      raw[i] = amp * (6 * Math.sin(s / 150) + 3.2 * Math.sin(s / 61 + 1.3) + 1.6 * Math.sin(s / 29 + 0.4)) + Math.min(s, this.sNF + 200) * 0.012;
+      raw[i] = amp * (6 * Math.sin(s / 150) + 3.2 * Math.sin(s / 61 + 1.3) + 1.6 * Math.sin(s / 29 + 0.4)) + Math.min(s, this.sNF + 200) * 0.012 + this.passHill(s);
     }
     const flats = [[20, 30, 110], [this.sStudio1, 30, 90], [this.sBar, 50, 130], [this.sRest, 35, 95], [this.sStudio2, 30, 90], [this.sNF, 60, 140], [this.sStudio3, 30, 90], [L, 60, 150]];
     const at = (s) => raw[Math.round(clamp(s, 0, L) / this.step)];
@@ -92,10 +92,10 @@ export class World {
     // smooth, then cap the gradient so there are no sudden humps or drops anywhere on the route
     const smooth = (passes, k0) => { for (let pass = 0; pass < passes; pass++) { const c = this.ry.slice(); for (let i = 0; i <= N; i++) { let sum = 0; for (let k = -k0; k <= k0; k++) sum += c[clamp(i + k, 0, N)]; this.ry[i] = sum / (k0 * 2 + 1); } } };
     smooth(4, 6);
-    const maxG = 0.055 * this.step;
+    const gAt = (i) => (0.055 + 0.05 * (1 - smoothstep(this.sBar - 250, this.sBar - 60, i * this.step))) * this.step;
     for (let it = 0; it < 3; it++) {
-      for (let i = 1; i <= N; i++) this.ry[i] = clamp(this.ry[i], this.ry[i - 1] - maxG, this.ry[i - 1] + maxG);
-      for (let i = N - 1; i >= 0; i--) this.ry[i] = clamp(this.ry[i], this.ry[i + 1] - maxG, this.ry[i + 1] + maxG);
+      for (let i = 1; i <= N; i++) this.ry[i] = clamp(this.ry[i], this.ry[i - 1] - gAt(i), this.ry[i - 1] + gAt(i));
+      for (let i = N - 1; i >= 0; i--) this.ry[i] = clamp(this.ry[i], this.ry[i + 1] - gAt(i), this.ry[i + 1] + gAt(i));
       smooth(2, 5);
     }
     // coarse nearest-road field for fast terrain generation
@@ -103,6 +103,8 @@ export class World {
     for (let i = 0; i <= N; i++) { minX = Math.min(minX, this.rx[i]); maxX = Math.max(maxX, this.rx[i]); minZ = Math.min(minZ, this.rz[i]); maxZ = Math.max(maxZ, this.rz[i]); }
     this.bbox = { minX, maxX, minZ, maxZ };
   }
+  // Part 1 climbs a pass: up through the first half, a ridge, then down toward the bar
+  passHill(s) { const u = s / this.sBar; return u >= 1.02 ? 78 * 0.22 : 78 * smoothstep(0.12, 0.47, u) * (1 - 0.78 * smoothstep(0.5, 0.97, u)); }
   // biome weights at road distance s: c = countryside, d = desert, u = urban
   biome(s) {
     const c = 1 - smoothstep(this.sBar + 80, this.sBar + 420, s);
@@ -208,6 +210,10 @@ export class World {
     }
     const rd = this.riverDist(x, z);
     if (rd < 26) h = lerp(Math.min(h, this.fallsY - 1.4), h, smoothstep(5, 26, rd));
+    if (fd < 90) { // stream bed feeding the lip of the falls
+      const up = (x - this.falls.x) * this.riverDir.x + (z - this.falls.z) * this.riverDir.z, lat = Math.abs((x - this.falls.x) * this.riverDir.z - (z - this.falls.z) * this.riverDir.x);
+      if (up > 1 && lat < 12) h = lerp(Math.min(h, this.fallsY + 23.2), h, smoothstep(4, 12, lat));
+    }
     if (rd < 60 && fd < 120) h = lerp(Math.min(h, this.fallsY + 1.5), h, smoothstep(14, 60, rd));
     for (const zn of this.zones) {
       const dz = Math.hypot(x - zn.x, z - zn.z);
@@ -255,7 +261,7 @@ export class World {
     const gravel = new THREE.Color('#8a7a6a'), rock = new THREE.Color('#7b6f6a'), pave = new THREE.Color('#7e7b80'), mud = new THREE.Color('#5a5040');
     const tmp = new THREE.Color(), tmp2 = new THREE.Color();
     const mat = toon('#ffffff', { vertexColors: true });
-    this.terrainTiles = [];
+    this.terrainTiles = []; const tileList = [];
     for (let ty = 0; ty < ntz; ty++) for (let tx = 0; tx < ntx; tx++) {
       const i0 = tx * TS, j0 = ty * TS, i1 = Math.min(this.tnx, i0 + TS), j1 = Math.min(this.tnz, j0 + TS);
       const ccx = this.tMinX + (i0 + i1) / 2 * cs, ccz = this.tMinZ + (j0 + j1) / 2 * cs;
@@ -266,6 +272,20 @@ export class World {
         const n = fastNearest(x, z);
         this.th[k] = this.heightNatural(x, z, n); ts[k] = n.s; td[k] = n.d; done[k] = 1;
       }
+      tileList.push([i0, j0, i1, j1]);
+    }
+    // blur away the hard steps where two stretches of road at different heights sit side by side (switchbacks)
+    const sLim = this.sFalls - 120;
+    for (let pass = 0; pass < 5; pass++) {
+      const c = this.th.slice();
+      for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) {
+        const k = j * W + i; if (!done[k] || td[k] < 10 || ts[k] > sLim) continue;
+        if (!done[k - 1] || !done[k + 1] || !done[k - W] || !done[k + W]) continue;
+        const avg = (c[k - 1] + c[k + 1] + c[k - W] + c[k + W]) / 4;
+        this.th[k] = lerp(c[k], avg, 0.9 * smoothstep(10, 22, td[k]));
+      }
+    }
+    for (const [i0, j0, i1, j1] of tileList) {
       const tris = (i1 - i0) * (j1 - j0) * 2;
       const pos = new Float32Array(tris * 9), col = new Float32Array(tris * 9);
       let q = 0;
@@ -395,50 +415,87 @@ export class World {
 
   // ---------------- waterfall, river & bridge ----------------
   buildWaterfall() {
-    const F = this.falls, Y = this.fallsY, d = this.riverDir;
-    const ry = Math.atan2(-d.x, -d.z); // plane faces back toward the road
-    // water textures
-    const fallTex = canvasTex(32, 128, (g) => { g.fillStyle = '#9fd8f0'; g.fillRect(0, 0, 32, 128); const r = mulberry32(9); for (let i = 0; i < 220; i++) { g.fillStyle = r() > 0.5 ? '#e8f8ff' : '#6fb6d8'; g.fillRect(Math.floor(r() * 32), Math.floor(r() * 128), 1, 2 + Math.floor(r() * 8)); } });
-    fallTex.wrapS = fallTex.wrapT = THREE.RepeatWrapping; fallTex.repeat.set(3, 2);
-    const fall = new THREE.Mesh(new THREE.PlaneGeometry(13, 25, 1, 1), basic('#ffffff', { map: fallTex, transparent: true, opacity: 0.92 }));
-    fall.position.set(F.x - d.x * 1.5, Y + 12.2, F.z - d.z * 1.5); fall.rotation.y = ry; this.scene.add(fall);
-    // rock face around the fall
-    const rockM = toon('#6f6862'), rockM2 = toon('#857d74');
+    const F = this.falls, Y = this.fallsY, d = this.riverDir, sd = { x: d.z, z: -d.x }; // d: road → falls, sd: sideways
+    const TOPY = Y + 23.4, LEDGE = Y + 8.5, yaw = Math.atan2(-d.x, -d.z); // yaw: facing back toward the road
+    const at = (fwd, side, y) => new THREE.Vector3(F.x + d.x * fwd + sd.x * side, y, F.z + d.z * fwd + sd.z * side);
     const r = mulberry32(41);
-    for (let k = 0; k < 26; k++) {
-      const side = (k % 2 ? 1 : -1), along = 5.5 + r() * 26;
-      const px = F.x + d.z * side * along + d.x * (1 + r() * 4), pz = F.z - d.x * side * along + d.z * (1 + r() * 4);
-      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(4 + r() * 5, 0), r() > 0.5 ? rockM : rockM2);
-      m.position.set(px, Y + 3 + r() * 19, pz); m.rotation.set(r() * 3, r() * 3, 0); m.scale.y = 1.4; m.castShadow = true; this.scene.add(m);
+    // --- cliff: an amphitheatre of basalt columns around the plunge pool, with a notch where the water pours over
+    const rockA = toon('#6f6862'), rockB = toon('#857d74'), rockC = toon('#5d5651'), moss = toon('#5f8f3e');
+    const cols = [];
+    for (let a = -1.45; a <= 1.451; a += 0.115) {
+      for (const ring of [0, 1]) {
+        const R = 15 + ring * 5.5 + r() * 1.5, notch = Math.abs(a) < 0.2 && ring === 0;
+        const h = (notch ? 23.2 : 24.5 + r() * 4 + ring * 1.5) * (1 - 0.35 * smoothstep(0.9, 1.45, Math.abs(a))), rad = 2.3 + r() * 1.4;
+        const p = at(-13 + Math.cos(a) * R, Math.sin(a) * R, Y - 3 + h / 2);
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.82, rad, h + 3, 6), [rockA, rockB, rockC][Math.floor(r() * 3)]);
+        m.position.copy(p); m.rotation.y = r() * 3; m.castShadow = true; m.receiveShadow = true; this.scene.add(m);
+        if (!notch && r() > 0.35) { const cap = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.86, rad * 0.86, 0.5, 6), moss); cap.position.set(p.x, Y + h + 0.2, p.z); cap.rotation.y = m.rotation.y; this.scene.add(cap); }
+        cols.push(p);
+      }
     }
-    for (let k = 0; k < 6; k++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2 + r() * 1.5, 0), rockM2); m.position.set(F.x - d.x * (4 + r() * 6) + d.z * (r() - 0.5) * 14, Y + 0.2, F.z - d.z * (4 + r() * 6) - d.x * (r() - 0.5) * 14); this.scene.add(m); }
-    // pool + river ribbon
+    // mid-height ledge the water crashes onto, and boulders around the pool
+    for (const [sx, w] of [[-3.2, 5], [1.5, 6], [5, 4]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.5, w * 0.62, 3, 6), rockC); m.position.copy(at(-0.2, sx, LEDGE - 1.5)); m.rotation.y = r() * 3; this.scene.add(m); }
+    for (let k = 0; k < 14; k++) { const a = -1.5 + r() * 3, R = 12.5 + r() * 2.5; const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1 + r() * 1.6, 0), r() > 0.5 ? rockA : rockB); m.position.copy(at(-13 + Math.cos(a) * R, Math.sin(a) * R, Y + 0.2)); m.rotation.set(r() * 3, r() * 3, 0); m.scale.y = 0.7; m.castShadow = true; this.scene.add(m); }
+    // --- water
+    const streak = (base, hi, lo, n) => { const t = canvasTex(64, 256, (g) => { g.fillStyle = base; g.fillRect(0, 0, 64, 256); const rr = mulberry32(9); for (let i = 0; i < n; i++) { g.fillStyle = rr() > 0.45 ? hi : lo; const x = Math.floor(rr() * 64), len = 10 + Math.floor(rr() * 46), y = Math.floor(rr() * 256); g.fillRect(x, y, 1 + (rr() > 0.7 ? 1 : 0), len); if (y + len > 256) g.fillRect(x, 0, 1, y + len - 256); } }); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+    const bodyTex = streak('#6db9dc', '#a9e0f4', '#4f9cc4', 260), foamTex = canvasTex(64, 256, (g) => { g.clearRect(0, 0, 64, 256); const rr = mulberry32(4); for (let i = 0; i < 150; i++) { g.fillStyle = `rgba(255,255,255,${0.5 + rr() * 0.5})`; const x = Math.floor(rr() * 64), len = 14 + Math.floor(rr() * 60), y = Math.floor(rr() * 256); g.fillRect(x, y, 2, len); if (y + len > 256) g.fillRect(x, 0, 2, y + len - 256); } });
+    foamTex.wrapS = foamTex.wrapT = THREE.RepeatWrapping;
+    const texs = [];
+    const sheet = (w, h, fwd, yTop, bulge, tex, opacity, speed, rep) => {
+      const geo = new THREE.PlaneGeometry(w, h, 8, 6), pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) / (w / 2), y = (pos.getY(i) + h / 2) / h; pos.setZ(i, (1 - x * x) * bulge + (1 - y) * (1 - y) * bulge * 1.6); pos.setX(i, pos.getX(i) * (1 + (1 - y) * 0.18)); }
+      geo.computeVertexNormals();
+      const t = tex.clone(); t.needsUpdate = true; t.repeat.set(rep, h / 9); texs.push([t, speed]);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity, depthWrite: opacity > 0.9, side: THREE.DoubleSide }));
+      m.position.copy(at(fwd, 0, yTop - h / 2)); m.rotation.y = yaw; this.scene.add(m); return m;
+    };
+    const h1 = TOPY - LEDGE, h2 = LEDGE - Y;
+    sheet(5.2, h1, 0.9, TOPY, 0.7, bodyTex, 0.96, 1.25, 2); sheet(5.4, h1, 0.75, TOPY, 0.9, foamTex, 0.7, 1.9, 2);
+    sheet(8.5, h2 + 0.6, -2.6, LEDGE + 0.3, 1.1, bodyTex, 0.96, 1.05, 3); sheet(8.8, h2 + 0.6, -2.8, LEDGE + 0.3, 1.3, foamTex, 0.75, 1.6, 3);
+    // rounded lip where the stream rolls over the edge, and the stream on top of the cliff
+    const lip = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 5.2, 8, 1, true, 0, Math.PI), new THREE.MeshBasicMaterial({ map: bodyTex, side: THREE.DoubleSide }));
+    lip.rotation.set(0, yaw + Math.PI / 2, Math.PI / 2, 'YXZ'); lip.position.copy(at(1.7, 0, TOPY - 0.95)); this.scene.add(lip);
     const riverTex = canvasTex(32, 64, (g) => { g.fillStyle = '#4f9cc4'; g.fillRect(0, 0, 32, 64); const rr = mulberry32(5); for (let i = 0; i < 90; i++) { g.fillStyle = rr() > 0.6 ? '#9fd8f0' : '#3d86b0'; g.fillRect(Math.floor(rr() * 32), Math.floor(rr() * 64), 3 + Math.floor(rr() * 5), 1); } });
     riverTex.wrapS = riverTex.wrapT = THREE.RepeatWrapping;
+    const upper = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 46), new THREE.MeshBasicMaterial({ map: riverTex.clone(), side: THREE.DoubleSide })); upper.material.map.repeat.set(1, 8); upper.material.map.needsUpdate = true;
+    upper.rotation.set(-Math.PI / 2, 0, -yaw, 'XYZ'); upper.position.copy(at(24.6, 0, TOPY + 0.05)); this.scene.add(upper);
+    // plunge pool + river ribbon down to the bridge
     const pos = [], uv = [], idx = [], R = this.river;
     for (let i = 0; i < R.length; i++) {
       const a = R[Math.max(0, i - 1)], b = R[Math.min(R.length - 1, i + 1)];
       let tx = b.x - a.x, tz = b.z - a.z; const l = Math.hypot(tx, tz); tx /= l; tz /= l;
-      const w = i < 2 ? 11 : 4.5;
-      pos.push(R[i].x - tz * w, Y, R[i].z + tx * w, R[i].x + tz * w, Y, R[i].z - tx * w);
+      const wd = i < 2 ? 11 : 4.5;
+      pos.push(R[i].x - tz * wd, Y, R[i].z + tx * wd, R[i].x + tz * wd, Y, R[i].z - tx * wd);
       uv.push(0, i * 1.2, 1, i * 1.2);
     }
     for (let i = 0; i < R.length - 1; i++) { const A = i * 2; idx.push(A, A + 1, A + 2, A + 1, A + 3, A + 2); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-    const river = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: riverTex, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })); this.scene.add(river);
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(12, 16), new THREE.MeshBasicMaterial({ map: riverTex, transparent: true, opacity: 0.9 }));
-    pool.rotation.x = -Math.PI / 2; pool.position.set(F.x - d.x * 7, Y + 0.02, F.z - d.z * 7); this.scene.add(pool);
-    // spray
-    const spray = [];
-    for (let i = 0; i < 18; i++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 0), basic('#e8f6ff', { transparent: true, opacity: 0.5 })); this.scene.add(m); spray.push({ m, t: Math.random() }); }
+    this.scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: riverTex, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })));
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(14, 20), new THREE.MeshBasicMaterial({ map: riverTex, transparent: true, opacity: 0.93 }));
+    pool.rotation.x = -Math.PI / 2; pool.position.copy(at(-11, 0, Y + 0.03)); this.scene.add(pool);
+    // foam where the water lands, churning rings on the pool, drifting mist, and a rainbow in the spray
+    const white = () => new THREE.MeshBasicMaterial({ color: '#f2fbff', transparent: true, opacity: 0.9 });
+    const foam = [];
+    for (const [fwd, y, wd, n] of [[-0.8, LEDGE + 0.3, 6, 7], [-4.6, Y + 0.3, 9, 11]]) for (let i = 0; i < n; i++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9 + r() * 0.7, 0), white()); m.position.copy(at(fwd - r() * 1.2, (i / (n - 1) - 0.5) * wd, y)); this.scene.add(m); foam.push({ m, ph: r() * 6.28, y }); }
+    const rings = [];
+    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 24), new THREE.MeshBasicMaterial({ color: '#e8f8ff', transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.copy(at(-5.5, 0, Y + 0.06 + i * 0.01)); this.scene.add(m); rings.push({ m, t: i / 3 }); }
+    const mist = [];
+    for (let i = 0; i < 34; i++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: '#eaf7ff', transparent: true, opacity: 0.12, depthWrite: false })); this.scene.add(m); mist.push({ m, t: r(), side: (r() - 0.5) * 10, sp: 0.25 + r() * 0.25, base: r() > 0.35 ? [-5, Y] : [-1.2, LEDGE] }); }
+    const bow = canvasTex(256, 256, (c) => { c.clearRect(0, 0, 256, 256); const colsB = ['#ff5a5a', '#ffa64a', '#ffe66a', '#7fe08a', '#6ab8ff', '#9a7aff']; colsB.forEach((col, i) => { c.strokeStyle = col; c.lineWidth = 3.4; c.globalAlpha = 0.85; c.beginPath(); c.arc(128, 128, 124 - i * 3.3, 0, 7); c.stroke(); }); });
+    const rainbow = new THREE.Mesh(new THREE.RingGeometry(10.2, 12.3, 40, 1, 0.25, Math.PI - 0.5), new THREE.MeshBasicMaterial({ map: bow, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    rainbow.position.copy(at(-9, 2, Y - 1.5)); rainbow.rotation.y = yaw + 0.25; this.scene.add(rainbow);
     this.anim.push((t, dt) => {
-      fallTex.offset.y = (t * 1.6) % 1; riverTex.offset.y = -(t * 0.35) % 1;
-      for (const s of spray) {
-        s.t += (dt || 0.016) * 0.6; if (s.t > 1) s.t = 0;
-        const a = s.t * 6.28 + spray.indexOf(s);
-        s.m.position.set(F.x - d.x * (3 + s.t * 4) + Math.cos(a) * 3, Y + s.t * 3.5, F.z - d.z * (3 + s.t * 4) + Math.sin(a) * 3);
-        s.m.scale.setScalar(0.6 + s.t * 1.6); s.m.material.opacity = 0.5 * (1 - s.t);
+      const e = dt || 0.016;
+      for (const [tx, sp] of texs) tx.offset.y = (t * sp * 0.45) % 1;
+      bodyTex.offset.y = (t * 0.6) % 1; riverTex.offset.y = -(t * 0.35) % 1; upper.material.map.offset.y = (t * 0.5) % 1;
+      for (const f of foam) { const s = 1 + Math.sin(t * 5 + f.ph) * 0.28; f.m.scale.set(s, 0.55 + Math.sin(t * 7 + f.ph) * 0.2, s); f.m.position.y = f.y + Math.sin(t * 6 + f.ph) * 0.25; }
+      for (const rg of rings) { rg.t = (rg.t + e * 0.28) % 1; rg.m.scale.setScalar(3 + rg.t * 9); rg.m.material.opacity = 0.5 * (1 - rg.t); }
+      for (const s of mist) {
+        s.t += e * s.sp; if (s.t > 1) s.t = 0;
+        const p = at(s.base[0] - s.t * 9, s.side * (1 + s.t), s.base[1] + 0.5 + s.t * 7);
+        s.m.position.copy(p); s.m.scale.setScalar(0.9 + s.t * 2.4); s.m.material.opacity = 0.13 * Math.sin(s.t * Math.PI);
       }
+      rainbow.material.opacity = 0.34 + Math.sin(t * 0.7) * 0.08;
     });
     // bridge where the river crosses the road
     const p = this.roadPoint(this.sFalls), rot = Math.atan2(p.tx, p.tz), yR = this.roadYAt(this.sFalls);
@@ -507,6 +564,23 @@ export class World {
     const fim = new THREE.InstancedMesh(fenceGeo, toon('#8a6a48'), fences.length);
     fences.forEach((o, i) => { e.set(0, o.ry, 0); q.setFromEuler(e); v.set(o.x, o.y, o.z); sv.set(1, 1, 1); m4.compose(v, q, sv); fim.setMatrixAt(i, m4); });
     fim.computeBoundingSphere(); this.scene.add(fim);
+    // guardrails round the outside of tight bends
+    const railGeo = mergeGeometries([g(new THREE.BoxGeometry(0.08, 0.28, 4.3), 0, 0.62), g(new THREE.BoxGeometry(0.12, 0.7, 0.12), 0, 0.35, -2), g(new THREE.BoxGeometry(0.12, 0.7, 0.12), 0, 0.35, 2)]); railGeo.computeVertexNormals();
+    const rails = [];
+    for (let i = 8; i < this.N - 8; i += 2) {
+      const s = i * this.step; if (Math.abs(s - this.sFalls) < 24) continue;
+      const cx = this.tx[i + 6] - this.tx[i - 6], cz = this.tz[i + 6] - this.tz[i - 6], bend = Math.hypot(cx, cz) / (12 * this.step);
+      if (bend < 1 / 75) continue;
+      const rx = -this.tz[i], rz = this.tx[i], out = -Math.sign(cx * rx + cz * rz) || 1;
+      const x = this.rx[i] + rx * out * 5.7, z = this.rz[i] + rz * out * 5.7;
+      if (this.zones.some((zn) => Math.hypot(x - zn.x, z - zn.z) < zn.r + 2)) continue;
+      rails.push({ x, z, y: this.ry[i] - 0.05, ry: Math.atan2(this.tx[i], this.tz[i]) });
+    }
+    if (rails.length) {
+      const rim = new THREE.InstancedMesh(railGeo, toon('#c9c6c0'), rails.length);
+      rails.forEach((o, i) => { e.set(0, o.ry, 0); q.setFromEuler(e); v.set(o.x, o.y, o.z); sv.set(1, 1, 1); m4.compose(v, q, sv); rim.setMatrixAt(i, m4); });
+      rim.castShadow = true; rim.computeBoundingSphere(); this.scene.add(rim);
+    }
     // power poles (country + desert)
     const poleGeo = mergeGeometries([g(new THREE.CylinderGeometry(0.12, 0.16, 8, 5), 0, 4), g(new THREE.BoxGeometry(2.2, 0.15, 0.15), 0, 7.4)]); poleGeo.computeVertexNormals();
     const poles = [];
@@ -963,7 +1037,7 @@ export class World {
     this.addBox(sx, y, sz - 8.5, 28, 1.1, 0.3, toon('#8a8a92'));
     const fz = sz - 3.2, bz = sz + 1.8;
     const bandSpots = { trumpet: { x: sx, z: fz - 0.8 }, synthA: { x: sx - 5.4, z: fz }, guitar: { x: sx + 5.4, z: fz }, bass: { x: sx - 9.6, z: bz - 0.8 }, drums: { x: sx, z: bz }, synthB: { x: sx + 9.6, z: bz - 0.8 } };
-    const crowdPos = this.makeCrowd(380, sx - 26, sx + 26, V.z - 34, sz - 10, y, 31, 0.95);
+    const crowdPos = this.makeCrowd(760, sx - 30, sx + 30, V.z - 36, sz - 10, y, 31, 0.9);
     // stands: west, east, south with a static crowd
     const standM = toon('#4a4752'), standM2 = toon('#5a5762');
     const fans = [];

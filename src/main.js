@@ -28,7 +28,7 @@ const G = {
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(1);
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog('#efc79a', 70, 460);
 const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 900);
@@ -40,9 +40,9 @@ const INSET = { w: 512, h: 288, m: 14 };
 const sky = new Sky(scene);
 const hemi = new THREE.HemisphereLight('#ffe2c0', '#5a3a4a', 1.2); scene.add(hemi);
 const sun = new THREE.DirectionalLight('#ffd0a0', 2.4);
-sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
-Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 300 });
-sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05;
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 2.5;
+Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 320 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
 scene.add(sun, sun.target);
 const rcan = $('rhythm');
 function resize() {
@@ -675,7 +675,7 @@ function endPerf(d) {
   const fans = Math.round(d.hype * 3 + d.acc * 120);
   G.coins += coins; G.fans += fans; G.lastGig = d;
   audio.cheer(5, 0.6 + d.hype / 100);
-  signs.raise(G.t, 6, G.bandName.toUpperCase(), 'ENCORE!', 12);
+  if (G.leg > 0) signs.raise(G.t, 6, G.bandName.toUpperCase(), 'ENCORE!', 12);
   const stars = '★'.repeat(d.stars) + '☆'.repeat(5 - d.stars);
   const bandRows = Object.entries(d.bots).map(([r, a]) => `<div class="brow"><span style="color:${ROLES[r].color}">${ROLES[r].name}</span><span>${Math.round(a * 100)}%</span></div>`).join('');
   $('results').innerHTML = `<div class="card">
@@ -1195,12 +1195,13 @@ function frame() {
     if (G.mood > 0.6 && !G.moodWarned) { G.moodWarned = true; toast('The crowd is getting irritated — hit those notes!'); }
     if (G.mood < 0.3) G.moodWarned = false;
   } else G.mood = lerp(G.mood || 0, 0, Math.min(1, dt));
+  crowd.reserved = G.leg === 0; crowd.warm = G.perf && G.mode === 'gig' ? G.perf.hype / 100 : 0;
   crowd.setMood(G.mood);
   crowd.update(G.t, beat, G.perf && G.mode === 'gig' ? hype : 0.12);
   if (G.perf && G.mode === 'gig') {
     const slot = Math.floor(Math.max(0, G.perf.songBeat()) / 16);
     if (G.mood > 0.6) signs.lowerAll();
-    if (G.perf.songBeat() >= 0 && slot !== G.signSlot && G.mood < 0.5) {
+    if (G.leg > 0 && G.perf.songBeat() >= 0 && slot !== G.signSlot && G.mood < 0.5) { // nobody at The Rusty Nail knows the band yet
       G.signSlot = slot;
       if (slot % 5 === 0) signs.raise(G.t, 4, G.bandName.toUpperCase(), 'WE ♥ YOU!', 10);
       else { const r = G.signOrder[(slot - Math.floor(slot / 5) - 1) % G.signOrder.length]; signs.raise(G.t, 3, memberName(r), `${ROLES[r].name.toUpperCase()} ♥`, 10); }
@@ -1226,7 +1227,7 @@ function frame() {
   updateHover();
   // shadow follow
   const fcs = camera.position;
-  sun.target.position.set(fcs.x, fcs.y - 4, fcs.z);
+  sun.target.position.set(Math.round(fcs.x / 2) * 2, Math.round((fcs.y - 4) / 2) * 2, Math.round(fcs.z / 2) * 2); // snapped so shadow edges don't crawl
   sun.position.copy(sun.target.position).addScaledVector(G.sunDir, 140);
   sky.mesh.position.copy(camera.position);
   updateHUD(dt);

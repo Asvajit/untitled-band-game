@@ -194,20 +194,20 @@ export class Crowd {
     for (let i = 0; i < n; i++) { c.set(cols[i % cols.length]); this.bodyMesh.setColorAt(i, c); }
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3(1, 1, 1);
     for (const m of [this.bodyMesh, this.headMesh, this.faceMesh]) { m.castShadow = true; scene.add(m); m.frustumCulled = false; }
-    this.mood = 0; this.faces = { happy: faceTex, meh: crowdFaceTex('meh', '#d8d4a0'), angry: crowdFaceTex('angry', '#ffb0a0') }; this.face = 'happy';
+    this.mood = 0; this.faces = { happy: faceTex, idle: crowdFaceTex('idle', '#bfd8d0'), meh: crowdFaceTex('meh', '#d8d4a0'), angry: crowdFaceTex('angry', '#ffb0a0') }; this.face = 'happy';
     this.update(0, 0, 0.3);
   }
   hop(i, t) { this.hopT = this.hopT || {}; this.hopT[i] = t; }
   setMood(m) {
     this.mood = m;
-    const f = m > 0.6 ? 'angry' : m > 0.3 ? 'meh' : 'happy';
+    const f = m > 0.6 ? 'angry' : m > 0.3 ? 'meh' : (this.reserved && !(this.warm > 0.72)) ? 'idle' : 'happy';
     if (f !== this.face) { this.face = f; this.faceMesh.material.map = this.faces[f]; this.faceMesh.material.needsUpdate = true; }
   }
   update(t, beat, hype) {
     const e = new THREE.Euler();
     for (let i = 0; i < this.pos.length; i++) {
       const p = this.pos[i];
-      const m = this.mood || 0, calm = 1 - m;
+      const m = this.mood || 0, calm = (1 - m) * (this.reserved ? 0.25 + 0.5 * smoothRamp(this.warm || 0) : 1);
       const b = Math.abs(Math.sin(beat * Math.PI + this.ph[i] * 0.15));
       let y = b * (0.04 + hype * 0.35) * this.amp[i] * calm;
       const ht = this.hopT && this.hopT[i] !== undefined ? t - this.hopT[i] : 9; if (ht < 0.6) y += Math.sin(ht / 0.6 * Math.PI) * 0.35;
@@ -221,4 +221,5 @@ export class Crowd {
     this.bodyMesh.instanceMatrix.needsUpdate = this.headMesh.instanceMatrix.needsUpdate = this.faceMesh.instanceMatrix.needsUpdate = true;
   }
 }
+const smoothRamp = (h) => Math.max(0, Math.min(1, (h - 0.45) / 0.4));
 export function crowdFaceTex(expr = 'happy', col = '#9fffd8') { return canvasTex(32, 24, (c) => drawFace(c, expr, col)); }

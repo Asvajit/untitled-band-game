@@ -285,6 +285,24 @@ export class World {
         this.th[k] = lerp(c[k], avg, 0.9 * smoothstep(10, 22, td[k]));
       }
     }
+    // make sure nothing ever sits on or hangs over the road: pin the ground to road level under it and
+    // limit how fast banks can rise or fall away beside it (the bridge over the river is left alone)
+    const nearD = new Float32Array(W * H).fill(1e9), nearY = new Float32Array(W * H);
+    for (let i = 0; i <= this.N; i++) {
+      if (Math.abs(i * this.step - this.sFalls) < 24) continue;
+      const rx0 = this.rx[i], rz0 = this.rz[i], RAD = 22;
+      const ia = Math.max(0, Math.floor((rx0 - RAD - this.tMinX) / cs)), ib = Math.min(W - 1, Math.ceil((rx0 + RAD - this.tMinX) / cs));
+      const ja = Math.max(0, Math.floor((rz0 - RAD - this.tMinZ) / cs)), jb = Math.min(H - 1, Math.ceil((rz0 + RAD - this.tMinZ) / cs));
+      for (let j = ja; j <= jb; j++) for (let ii = ia; ii <= ib; ii++) {
+        const k = j * W + ii, d = Math.hypot(this.tMinX + ii * cs - rx0, this.tMinZ + j * cs - rz0);
+        if (d < nearD[k]) { nearD[k] = d; nearY[k] = this.ry[i]; }
+      }
+    }
+    for (let k = 0; k < W * H; k++) {
+      if (!done[k] || nearD[k] > 22) continue;
+      const y = nearY[k] - 0.5, slack = Math.max(0, nearD[k] - 9) * 0.75;
+      this.th[k] = clamp(this.th[k], y - slack, y + slack);
+    }
     for (const [i0, j0, i1, j1] of tileList) {
       const tris = (i1 - i0) * (j1 - j0) * 2;
       const pos = new Float32Array(tris * 9), col = new Float32Array(tris * 9);
@@ -481,9 +499,6 @@ export class World {
     for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 24), new THREE.MeshBasicMaterial({ color: '#e8f8ff', transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.copy(at(-5.5, 0, Y + 0.06 + i * 0.01)); this.scene.add(m); rings.push({ m, t: i / 3 }); }
     const mist = [];
     for (let i = 0; i < 34; i++) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: '#eaf7ff', transparent: true, opacity: 0.12, depthWrite: false })); this.scene.add(m); mist.push({ m, t: r(), side: (r() - 0.5) * 10, sp: 0.25 + r() * 0.25, base: r() > 0.35 ? [-5, Y] : [-1.2, LEDGE] }); }
-    const bow = canvasTex(256, 256, (c) => { c.clearRect(0, 0, 256, 256); const colsB = ['#ff5a5a', '#ffa64a', '#ffe66a', '#7fe08a', '#6ab8ff', '#9a7aff']; colsB.forEach((col, i) => { c.strokeStyle = col; c.lineWidth = 3.4; c.globalAlpha = 0.85; c.beginPath(); c.arc(128, 128, 124 - i * 3.3, 0, 7); c.stroke(); }); });
-    const rainbow = new THREE.Mesh(new THREE.RingGeometry(10.2, 12.3, 40, 1, 0.25, Math.PI - 0.5), new THREE.MeshBasicMaterial({ map: bow, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-    rainbow.position.copy(at(-9, 2, Y - 1.5)); rainbow.rotation.y = yaw + 0.25; this.scene.add(rainbow);
     this.anim.push((t, dt) => {
       const e = dt || 0.016;
       for (const [tx, sp] of texs) tx.offset.y = (t * sp * 0.45) % 1;
@@ -495,7 +510,6 @@ export class World {
         const p = at(s.base[0] - s.t * 9, s.side * (1 + s.t), s.base[1] + 0.5 + s.t * 7);
         s.m.position.copy(p); s.m.scale.setScalar(0.9 + s.t * 2.4); s.m.material.opacity = 0.13 * Math.sin(s.t * Math.PI);
       }
-      rainbow.material.opacity = 0.34 + Math.sin(t * 0.7) * 0.08;
     });
     // bridge where the river crosses the road
     const p = this.roadPoint(this.sFalls), rot = Math.atan2(p.tx, p.tz), yR = this.roadYAt(this.sFalls);

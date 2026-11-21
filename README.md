@@ -8,8 +8,9 @@ Co-op robot-band touring game. Three.js, bundled with esbuild into a single HTML
     cd dist && python3 -m http.server 8765
     open http://localhost:8765
 
-## Test server
-    ./deploy.sh                 # builds and pushes dist/ to the gh-pages branch (GitHub Pages)
+## Hosting
+Cloudflare Workers static assets (wrangler.jsonc serves ./dist). The built dist/index.html is committed,
+so run `node build.mjs` before committing. With the repo connected in Cloudflare, every push to main deploys.
 
 ## Layout
 - src/main.js      game loop, state (G), player (P), interactables, legs/progression, HUD, debug panel

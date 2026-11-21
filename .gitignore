@@ -4,3 +4,4 @@ shots/
 dist/game.js
 dist/tpose.*
 dist/bodies.*
+dist/glbview.*

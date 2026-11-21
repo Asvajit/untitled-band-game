@@ -30,21 +30,21 @@ export const SPECS = {
     botSeats: ['shotgun', 'row1A', 'row1B', 'row2A', 'row2B'],
   },
   rv: {
-    name: 'RV', title: 'the RV', F: 1.0, W: 1.45, IW: 1.35, ZB: -5.8, ZF: 5.3, TOP: 3.45, driverX: 0.72,
+    name: 'RV', title: 'the RV', F: 1.0, W: 1.45, IW: 1.35, ZB: -5.8, ZF: 5.3, TOP: 3.53, driverX: 0.72,
     wheelR: 0.58, track: 1.5, axleF: 3.75, axleR: -3.4, wheelbase: 6.2, power: 1.6, vmax: 32, maxSteer: 0.55, steerV: 16, steerRate: 4, drain: 1, solar: true, grip: 6.0,
-    colZ: [4.6, 1.6, -1.6, -4.6], colR: 1.6, orbit: 13, chase: [6, -15], exit: [-4.2, 2.1], mirrorCam: [0, 3.0, -6.2], mirror: [0.12, 1.82],
+    colZ: [4.6, 1.6, -1.6, -4.6], colR: 1.6, orbit: 13, chase: [6, -15], exit: [-4.2, 1.2], mirrorCam: [0, 3.0, -6.2], mirror: [0.12, 1.82],
     smoke: [0, 1.8, 5.8], wipers: [[0.62, 0.85], [-0.38, 0.85]],
-    roofY: 3.57,
-    ladder: { bottom: [0.9, 0.05, -6.35], top: [0.9, 3.59, -5.35] },
+    roofY: 3.65,
+    ladder: { bottom: [0.9, 0.05, -6.35], top: [0.9, 3.67, -5.35] },
     seats: {
       driver: { p: [0.72, 1.0, 3.85], yaw: 0, stand: [0, 3.3, P2 * 2] },
       shotgun: { p: [-0.72, 1.0, 3.85], yaw: 0, stand: [0, 3.3, P2 * 2] },
       sofaA: { p: [0.92, 1.0, 2.35], yaw: Math.PI, stand: [0.15, 2.35, Math.PI] },
       sofaB: { p: [0.92, 1.0, 0.72], yaw: 0, stand: [0.15, 0.72, 0] },
-      benchA: { p: [-1.02, 1.0, 0.45], yaw: P2, stand: [-0.4, 0.45, P2] },
-      benchB: { p: [-1.02, 1.0, -0.4], yaw: P2, stand: [-0.4, -0.4, P2] },
-      roofA: { p: [-0.55, 3.57, 0.9], yaw: 0, roof: true, stand: [-0.22, 0.3, 0] },
-      roofB: { p: [0.55, 3.57, 0.9], yaw: 0, roof: true, stand: [0.22, 0.3, 0] },
+      benchA: { p: [-1.02, 1.0, 0.12], yaw: P2, stand: [-0.4, 0.12, P2] },
+      benchB: { p: [-1.02, 1.0, -0.5], yaw: P2, stand: [-0.4, -0.5, P2] },
+      roofA: { p: [-0.55, 3.65, 0.9], yaw: 0, roof: true, stand: [-0.22, 0.3, 0] },
+      roofB: { p: [0.55, 3.65, 0.9], yaw: 0, roof: true, stand: [0.22, 0.3, 0] },
     },
     botSeats: ['shotgun', 'sofaA', 'sofaB', 'benchA', 'benchB'],
   },
@@ -212,7 +212,7 @@ export class Van {
       add(box(W * 2 + 0.1, 0.22, 0.2, '#8a3a22'), 0, 0.6, ZB - 0.12); add(box(0.5, 0.16, 0.02, '#e8e2d0'), 0.2, 0.62, ZB - 0.23);
       add(box(0.6, 0.07, 0.04, red), 0, TOP - 0.2, ZB - 0.02);
       this.mirrors(4.55, F + 1.45, 0.34, 0.34);
-      this.addAutoDoor({ side: -1, z0: 1.5, z1: 2.7, y0: F, y1: F + 2.15, kind: 'hinge', mat: cream, glassFrom: F + 1.15, trim: { y: F + 0.62, mat: stripe } });
+      this.addAutoDoor({ side: -1, z0: 0.6, z1: 1.75, y0: F, y1: F + 2.15, kind: 'hinge', mat: cream, glassFrom: F + 1.15, trim: { y: F + 0.62, mat: stripe } });
     } else {
       const body = toon('#23252e'), accent = toon('#7af0ff'), panel = toon('#2f323d');
       // rounded front cap, raked visor, grille, plate
@@ -241,6 +241,66 @@ export class Van {
       this.addAutoDoor({ side: -1, z0: -5.6, z1: -4.9, y0: F, y1: F + 2.0, kind: 'slide', dir: 1, mat: dm, trim: tr });
       this.addAutoDoor({ side: 1, z0: -0.95, z1: -0.2, y0: F, y1: F + 2.0, kind: 'slide', dir: -1, mat: dm, glassFrom: F + 0.85, trim: tr });
     }
+  }
+  // Use a loaded 3D model as the outside of the vehicle. The box-built walls stay as the walk-in interior:
+  // the model is shown when you look at the vehicle from outside, the interior shell when you're inside it.
+  attachModel(scene, cfg) {
+    const S = this.spec, shell = new THREE.Group(); shell.add(scene);
+    scene.scale.set(...cfg.scale); scene.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(scene);
+    scene.position.set(0, -bb.min.y, cfg.zShift || 0); scene.updateMatrixWorld(true);
+    // door openings cut out of the model (vehicle-local boxes), done in the shader
+    const holes = cfg.holes.map((h) => [new THREE.Vector3(h[0], h[2], h[4]), new THREE.Vector3(h[1], h[3], h[5])]);
+    this.shellU = { uInvRoot: { value: new THREE.Matrix4() }, uHoleMin: { value: holes.map((h) => h[0]) }, uHoleMax: { value: holes.map((h) => h[1]) } };
+    const cut = (mat) => {
+      mat.onBeforeCompile = (sh) => {
+        Object.assign(sh.uniforms, this.shellU);
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform mat4 uInvRoot;\nvarying vec3 vVeh;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvVeh = (uInvRoot * modelMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vVeh;\nuniform vec3 uHoleMin[${holes.length}];\nuniform vec3 uHoleMax[${holes.length}];`).replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\nfor (int i = 0; i < ${holes.length}; i++) { if (all(greaterThan(vVeh, uHoleMin[i])) && all(lessThan(vVeh, uHoleMax[i]))) discard; }`);
+      };
+      mat.customProgramCacheKey = () => 'shellholes' + holes.length;
+      return mat;
+    };
+    const mats = new Map(); this.shellSpin = []; this.shellLamps = [];
+    const box = new THREE.Box3();
+    scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const src = o.material, name = src.name || '';
+      box.setFromObject(o);
+      if (cfg.hide && cfg.hide(o, name, box)) { o.visible = false; return; }
+      if (cfg.spin && cfg.spin(o, name)) this.shellSpin.push(o.parent && !o.parent.isScene && o.parent.children.length === 1 ? o.parent : o);
+      if (!mats.has(src)) {
+        let m;
+        if (/window|glass/i.test(name)) m = new THREE.MeshToonMaterial({ color: '#1c2a33', transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+        else { m = toon('#ffffff', { map: src.map || null, side: THREE.DoubleSide }); if (!src.map) m.color.copy(src.color); if (cfg.tint) cfg.tint(m, name); }
+        if (src.emissiveMap) { m.emissiveMap = src.emissiveMap; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0.25; this.shellLamps.push(m); }
+        mats.set(src, cut(m));
+      }
+      o.material = mats.get(src); o.castShadow = !o.material.transparent; o.receiveShadow = true;
+    });
+    this.root.add(shell); this.shell = shell;
+    // everything box-built on the outside becomes "interior view only"
+    for (const c of [...this.root.children]) if (c.isMesh && c.material && c.material.visible !== false) this.walls.add(c);
+    // doors stay visible from both views, painted to match the model
+    const doorMat = toon(cfg.doorColor);
+    for (const d of [...(this.autoDoors || []), ...Object.values(this.doors || {})]) {
+      this.root.add(d.piv);
+      d.piv.traverse((m) => { if (m.isMesh && m.material !== this.glass && m.material.visible !== false && m.geometry.parameters.depth > 0.3 && m.geometry.parameters.width > 0.06) m.material = doorMat; });
+    }
+    // own wheels: either hidden (the model's axles spin) or moved to where the model's wheels are
+    if (cfg.wheels) { this.wheels.forEach((w, i) => { const p = cfg.wheels.pos[i]; w.piv.position.set(p[0], cfg.wheels.r, p[1]); w.piv.scale.setScalar(cfg.wheels.r / S.wheelR); }); S.wheelR = cfg.wheels.r; }
+    else for (const w of this.wheels) w.piv.visible = false;
+    if (cfg.axles) { S.axleF = cfg.axles[0]; S.axleR = cfg.axles[1]; }
+    if (cfg.ladder) { S.ladder = cfg.ladder; const dx = cfg.ladder.bottom[0] - this.hit.ladder.position.x; this.hit.ladder.position.x += dx; this.hit.ladderTop.position.x += dx; this.hit.ladder.position.z = cfg.ladder.bottom[2] + 0.25; }
+    if (cfg.after) cfg.after(this);
+    this.inside = null; this.setView(false);
+  }
+  setView(inside) {
+    if (!this.shell || inside === this.inside) return;
+    this.inside = inside;
+    this.shell.visible = !inside; this.walls.visible = inside;
+    for (const c of this.roof.children) c.visible = inside || !!c.userData.keep;
+    for (const c of this.interior.children) if (c.userData.insideOnly) c.visible = inside;
   }
   // side mirrors on arms
   mirrors(z, y, armLen, headH, top = false) {
@@ -368,15 +428,16 @@ export class Van {
     bx(IW, W, F + 2.0, TOP, ZB, 3.2, cream, wl);
     for (const [z0, z1] of [[ZB, -4.4], [-3.2, -2.9], [-1.4, 0.4], [2.2, 3.2]]) bx(IW, W, F + 1.0, F + 2.0, z0, z1, cream, wl);
     for (const [z0, z1] of [[-4.4, -3.2], [-2.9, -1.4], [0.4, 2.2]]) bx(IW + 0.04, W - 0.04, F + 1.0, F + 2.0, z0, z1, this.glass, { ...wp, cast: false });
-    bx(-W, -IW, F, F + 1.0, ZB, 1.5, cream, wr);
-    bx(-W, -IW, F + 2.0, TOP, ZB, 1.5, cream, wr);
-    for (const [z0, z1] of [[ZB, -4.3], [-2.6, -0.8], [0.9, 1.5]]) bx(-W, -IW, F + 1.0, F + 2.0, z0, z1, cream, wr);
-    for (const [z0, z1] of [[-4.3, -2.6], [-0.8, 0.9]]) bx(-W + 0.04, -IW - 0.04, F + 1.0, F + 2.0, z0, z1, this.glass, { ...wp, cast: false });
-    bx(-W, -IW, F + 2.15, TOP, 1.5, 2.7, cream, wr);
-    bx(-W, -IW, F, TOP, 2.7, 3.2, cream, wr);
+    const DZ0 = 0.6, DZ1 = 1.75; // side door
+    bx(-W, -IW, F, F + 1.0, ZB, DZ0, cream, wr);
+    bx(-W, -IW, F + 2.0, TOP, ZB, DZ0, cream, wr);
+    for (const [z0, z1] of [[ZB, -4.3], [-2.6, -0.8], [0.4, DZ0]]) bx(-W, -IW, F + 1.0, F + 2.0, z0, z1, cream, wr);
+    for (const [z0, z1] of [[-4.3, -2.6], [-0.8, 0.4]]) bx(-W + 0.04, -IW - 0.04, F + 1.0, F + 2.0, z0, z1, this.glass, { ...wp, cast: false });
+    bx(-W, -IW, F + 2.15, TOP, DZ0, DZ1, cream, wr);
+    bx(-W, -IW, F, TOP, DZ1, 3.2, cream, wr);
     for (const s of [-1, 1]) {
       const x = s * (W + 0.01);
-      for (const [z0, z1] of (s > 0 ? [[ZB, ZF]] : [[ZB, 1.5], [2.7, ZF]])) {
+      for (const [z0, z1] of (s > 0 ? [[ZB, ZF]] : [[ZB, DZ0], [DZ1, ZF]])) {
         const st = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, z1 - z0), stripe); st.position.set(x, F + 0.62, (z0 + z1) / 2); this.walls.add(st);
         const st2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.07, z1 - z0), stripe2); st2.position.set(x, F + 0.42, (z0 + z1) / 2); this.walls.add(st2);
       }
@@ -409,9 +470,9 @@ export class Van {
     for (const [x, z] of [[-1.1, -5.3], [1.1, -5.3], [-1.1, -2.3], [1.1, -2.3]]) bx(x - 0.03, x + 0.03, TOP + 0.12, TOP + 0.2, z - 0.03, z + 0.03, frameM, { ...rp, solid: false });
     for (const cx of [-0.55, 0.55]) {
       const cm = toon(cx < 0 ? '#2f8f8a' : '#e2763a');
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.45), cm); seat.position.set(cx, TOP + 0.24, 0.9); this.roof.add(seat);
-      const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.04), cm); back.position.set(cx, TOP + 0.48, 0.66); back.rotation.x = -0.25; this.roof.add(back);
-      for (const [lx, lz] of [[-0.22, 0.7], [0.22, 0.7], [-0.22, 1.1], [0.22, 1.1]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.03), chrome); l.position.set(cx + lx, TOP + 0.18, lz); this.roof.add(l); }
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.45), cm); seat.position.set(cx, TOP + 0.24, 0.9); seat.userData.keep = true; this.roof.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.04), cm); back.position.set(cx, TOP + 0.48, 0.66); back.rotation.x = -0.25; back.userData.keep = true; this.roof.add(back);
+      for (const [lx, lz] of [[-0.22, 0.7], [0.22, 0.7], [-0.22, 1.1], [0.22, 1.1]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.03), chrome); l.position.set(cx + lx, TOP + 0.18, lz); l.userData.keep = true; this.roof.add(l); }
     }
     for (const sx of [-1, 1]) bx(sx * 1.38 - 0.02, sx * 1.38 + 0.02, TOP + 0.12, TOP + 0.75, -5.6, 4.4, chrome, { ...rp, cast: false });
     bx(-1.38, 1.38, TOP + 0.12, TOP + 0.75, 4.38, 4.42, chrome, { ...rp, cast: false });
@@ -419,8 +480,8 @@ export class Van {
     for (const s of [-1, 1]) bx(0.9 + s * 0.22 - 0.03, 0.9 + s * 0.22 + 0.03, F, TOP + 0.3, ZB - 0.12, ZB - 0.06, chrome, { solid: false });
     for (let k = 0; k < 6; k++) bx(0.66, 1.14, F + 0.3 + k * 0.4, F + 0.34 + k * 0.4, ZB - 0.12, ZB - 0.06, chrome, { solid: false });
     this.logo(['THE LOOSE WIRES', 'WORLD TOUR'], '#c9763c', [[3.4, 1.0, W + 0.02, F + 1.5, -2.2, P2], [2.2, 0.65, -W - 0.02, F + 2.5, -1.6, -P2]]);
-    bx(-W - 0.62, -W - 0.3, 0.2, 0.36, 1.55, 2.65, chrome);
-    bx(-W - 0.3, -W, 0.2, 0.68, 1.55, 2.65, chrome);
+    bx(-W - 0.62, -W - 0.3, 0.2, 0.36, DZ0 + 0.05, DZ1 - 0.05, chrome);
+    bx(-W - 0.3, -W, 0.2, 0.68, DZ0 + 0.05, DZ1 - 0.05, chrome);
     this.lights(ZF + 0.78, ZB, 0.98, 0.12, 1.15, 0.3, 0.17);
     // interior
     const I = this.interior, ip = { parent: I };
@@ -430,7 +491,7 @@ export class Van {
     bx(0.5, IW, F, F + 0.45, 0.45, 0.9, cushion, ip); bx(0.5, IW, F + 0.45, F + 1.1, 0.42, 0.55, cushion2, ip);
     bx(0.55, IW, F + 0.72, F + 0.78, 1.05, 2.1, toon('#e2c27a'), ip);
     bx(0.95, 1.0, F, F + 0.72, 1.5, 1.6, chrome, { ...ip, solid: false });
-    bx(-IW, -0.8, F, F + 0.45, -0.75, 0.85, cushion, ip); bx(-IW, -1.2, F + 0.45, F + 1.1, -0.75, 0.85, cushion2, ip);
+    bx(-IW, -0.8, F, F + 0.45, -0.85, 0.48, cushion, ip); bx(-IW, -1.2, F + 0.45, F + 1.1, -0.85, 0.48, cushion2, ip);
     bx(0.78, IW, F, F + 0.95, -2.8, 0.25, wood, ip);
     bx(0.78, IW, F + 0.95, F + 1.0, -2.8, 0.25, toon('#d9d2c2'), { ...ip, solid: false });
     bx(0.88, 1.25, F + 0.96, F + 1.02, -0.9, -0.3, toon('#9fb4bd'), { ...ip, solid: false });
@@ -888,6 +949,11 @@ export class Van {
         if (s.life <= 0 && Math.random() < dt * 3) { s.life = 1.5; s.m.visible = true; this.local(...S.smoke, s.m.position); }
         if (s.life > 0) { s.life -= dt; s.m.position.y += dt * 1.2; s.m.scale.setScalar(1 + (1.5 - s.life)); if (s.life <= 0) s.m.visible = false; }
       }
+    }
+    if (this.shell) {
+      this.shellU.uInvRoot.value.copy(this.root.matrixWorld).invert();
+      const dth = this.v * dt / this.spec.wheelR; for (const a of this.shellSpin) a.rotateX(dth);
+      for (const m of this.shellLamps) m.emissiveIntensity = this.headlights ? 1.2 : 0.2;
     }
     this.dashT -= dt; if (this.dashT <= 0) { this.dashT = 0.08; this.drawDash(); }
   }

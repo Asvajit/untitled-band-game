@@ -3,6 +3,7 @@ import { Post, Sky, toon, basic, canvasTex } from './render.js';
 import { World, LEGS } from './world.js';
 import { defaultLevel, decodeLevel, encodeLevel } from './level.js';
 import { openEditor } from './editor.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Van, SPECS } from './van.js';
 import { Robot, ROLES, ROLE_LIST, Crowd, crowdFaceTex } from './robot.js';
 import { makeInstrument, makeHandheld, makeItem, makeFPInstrument, ITEMS } from './instruments.js';
@@ -113,6 +114,24 @@ function showEditor() {
   editor = openEditor($('editor'), editLevel || world.level, { isCustom: !!customLevel, onPlay: playLevel, onReset: resetLevel, onClose: (l) => { editLevel = l; hideOverlay(); } });
   showOverlay('editor');
 }
+// Vehicle models (CC-BY 4.0): "FREE GMC Motorhome reimagined low poly" by Karol Miklas, "VW Van" by jesseroberts (Sketchfab)
+const MODELS = {
+  van: { url: 'models/van.glb', scale: [0.2, 0.215, 0.2], zShift: -0.1, doorColor: '#2aa3a6',
+    hide: (o, name, b) => b.max.y < 0.95 && Math.abs((b.min.x + b.max.x) / 2) < 0.2 ? /Hubcap|Logo/.test(o.name) : (b.max.y < 0.95 && /polySurface24[1-4]/.test(o.name)),
+    wheels: { r: 0.45, pos: [[0.86, 1.53], [-0.86, 1.53], [0.86, -1.78], [-0.86, -1.78]] }, axles: [1.53, -1.78],
+    holes: [[-3, -0.9, 0.45, 2.37, -1.2, 0.1], [-3, -0.9, 0.6, 2.17, 0.3, 1.3], [0.9, 3, 0.6, 2.17, 0.3, 1.3]] },
+  rv: { url: 'models/rv.glb', scale: [1.087, 1.19, 1.3], zShift: 0.25, doorColor: '#c47a1e',
+    hide: (o, name) => name === 'interior', spin: (o, name) => name === 'clay.001', axles: [4.23, -1.9],
+    ladder: { bottom: [-0.87, 0.05, -6.5], top: [-0.87, 3.67, -5.35] },
+    holes: [[-3, -1.2, 0.72, 3.15, 0.6, 1.75]] },
+};
+async function loadVehicleModels() {
+  const loader = new GLTFLoader();
+  for (const [type, cfg] of Object.entries(MODELS)) {
+    try { const g = await loader.loadAsync(cfg.url); vehicles[type].attachModel(g.scene, cfg); }
+    catch (e) { console.warn('vehicle model not loaded, using the built-in one:', type, e); }
+  }
+}
 async function init() {
   try { await Promise.race([Promise.all([document.fonts.load('40px Bungee'), document.fonts.load('20px VT323')]), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* */ }
   try { audio.prefetch({ ...STEM_FILES, ...SFX_FILES }); } catch (e) { /* */ }
@@ -126,6 +145,7 @@ async function init() {
     v.root.visible = false;
     vehicles[type] = v;
   }
+  await loadVehicleModels();
   van = vehicles.van; van.root.visible = true; van.active = true;
   const sp = world.startPose;
   van.place(sp.x, sp.z, sp.heading);
@@ -1163,6 +1183,16 @@ function frame() {
   inp.grip = 1 - 0.3 * (G.rainAmt || 0);
   inp.playerLocal = P.mode === 'walk' ? van.root.worldToLocal(_v2.copy(P.pos)).clone() : null;
   van.roof.visible = !(G.dbg.third && P.onboard && P.mode === 'walk');
+  {
+    // model exterior from outside, walk-in shell from inside
+    let inside = false;
+    if (!G.chase && !G.dbg.third && !G.dbg.freecam && G.mode !== 'title' && !G.perf) {
+      const seat = P.seat && van.seats[P.seat];
+      if (P.mode === 'drive' || (P.mode === 'seat' && seat && !seat.roof)) inside = true;
+      else if (P.mode === 'walk') { const l = van.root.worldToLocal(_v3.copy(camera.position)); inside = Math.abs(l.x) < van.dims.W - 0.02 && l.z > van.dims.ZB && l.z < van.dims.ZF && l.y > van.dims.F - 0.4 && l.y < van.dims.TOP + 0.05; }
+    }
+    for (const V of Object.values(vehicles)) V.setView(V === van && inside);
+  }
   const carry = P.mode === 'walk' && P.onboard && G.mode !== 'title';
   const h0 = van.heading;
   if (carry) P.local = van.root.worldToLocal(_v4.copy(P.pos)).clone();
@@ -1339,7 +1369,7 @@ function buildTitle() {
       <div class="roles">${ROLE_LIST.map((r) => `<button class="role ${r === pick ? 'on' : ''}" data-r="${r}" style="--c:${ROLES[r].color}"><b>${ROLES[r].name}</b></button>`).join('')}</div>
       <button id="go">START THE TOUR ▶</button>
       <button id="goedit" style="font-size:15px;padding:8px 18px;margin-top:8px;background:#2e2940;">✎ LEVEL EDITOR${customLevel ? ' · custom level loaded' : ''}</button>
-      <p class="note">Offline prototype: the other 5 bandmates are bots (multiplayer slots for up to 6). Keyboard + mouse. Press <kbd>\`</kbd> any time for debug tools.</p></div>`;
+      <p class="note">Offline prototype: the other 5 bandmates are bots (multiplayer slots for up to 6). Keyboard + mouse. Press <kbd>\`</kbd> any time for debug tools.<br>Vehicle models: "FREE GMC Motorhome reimagined low poly" by Karol Miklas and "VW Van" by jesseroberts, CC BY 4.0, via Sketchfab (modified).</p></div>`;
     const keepNames = () => { G.bandName = ($('inBand').value.trim() || 'The Loose Wires'); G.playerName = ($('inName').value.trim() || 'Player 1'); };
     $('inBand').oninput = () => { $('tband').textContent = ($('inBand').value.trim() || 'The Loose Wires').toUpperCase(); };
     el.querySelectorAll('.role').forEach((b) => (b.onclick = () => { keepNames(); pick = b.dataset.r; setupRole(pick, true); render(); }));

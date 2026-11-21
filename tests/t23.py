@@ -1,0 +1,55 @@
+import asyncio
+from playwright.async_api import async_playwright
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required'])
+        pg = await b.new_page(viewport={'width':1280,'height':720})
+        errs=[]; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto('http://localhost:8765/index.html')
+        await pg.wait_for_function("document.getElementById('loading').style.display==='none'", timeout=90000)
+        await pg.click('#go'); await pg.wait_for_timeout(1500)
+        ev=pg.evaluate
+        await pg.screenshot(path='shots/160_door.png')
+        await ev("__dbg.sit('driver')"); await pg.wait_for_timeout(600)
+        await pg.screenshot(path='shots/161_cab.png')
+        await pg.keyboard.press('KeyR'); await pg.wait_for_timeout(2500)
+        await pg.keyboard.press('KeyP')
+        # Q + LMB drag to 1st
+        await pg.keyboard.down('KeyQ'); await pg.mouse.move(640,360); await pg.mouse.down()
+        for i in range(8): await pg.mouse.move(640-10*(i+1),360); await pg.wait_for_timeout(25)
+        for i in range(10): await pg.mouse.move(560,360-16*(i+1)); await pg.wait_for_timeout(25)
+        await pg.screenshot(path='shots/162_shift.png')
+        await pg.mouse.up(); await pg.keyboard.up('KeyQ')
+        print('gear after drag', await ev("__dbg.van.gear"))
+        await pg.keyboard.down('KeyW'); await pg.wait_for_timeout(3000)
+        await pg.keyboard.down('KeyQ'); await pg.mouse.wheel(0,-100); await pg.wait_for_timeout(300); await pg.keyboard.up('KeyQ')
+        print('gear after scroll', await ev("[__dbg.van.gear, (__dbg.van.v*3.6).toFixed(0)]"))
+        await pg.wait_for_timeout(2000); await pg.keyboard.up('KeyW')
+        # horn & wipers & lights
+        await pg.keyboard.down('Space'); await pg.wait_for_timeout(300); await pg.keyboard.up('Space')
+        await pg.keyboard.press('KeyK'); await pg.keyboard.press('KeyH'); await pg.wait_for_timeout(700)
+        await pg.screenshot(path='shots/163_wipers.png')
+        # click radio while driving
+        await ev("__dbg.P.drvYaw=0.35; __dbg.P.drvPitch=-0.55"); await pg.wait_for_timeout(400)
+        print('hover in cab', await ev("__dbg.hover"))
+        # blockers
+        print('blockers', await ev("__dbg.world.blockers.map(b=>[Math.round(b.s), b.kind, b.cleared])"))
+        await ev("(()=>{const b=__dbg.world.blockers[0]; const p=__dbg.world.roadPoint(b.s-25); __dbg.van.place(p.x,p.z,Math.atan2(p.tx,p.tz)); __dbg.standUp(); })()")
+        await ev("(()=>{const b=__dbg.world.blockers[0], P=__dbg.P, w=__dbg.world; const p=w.roadPoint(b.s-4); P.onboard=false; P.mode='walk'; P.pos.set(p.x, w.walkH(p.x,p.z,50), p.z); P.yaw=Math.atan2(p.tx,p.tz); P.pitch=-0.2;})()"); await pg.wait_for_timeout(600)
+        print('blocker hover', await ev("__dbg.hover"))
+        await pg.screenshot(path='shots/164_blocker.png')
+        await pg.keyboard.press('KeyE'); await pg.wait_for_timeout(1800)
+        await pg.keyboard.press('KeyL'); await pg.wait_for_timeout(300)
+        print('blockers after', await ev("__dbg.world.blockers.map(b=>b.cleared)"))
+        # gig roam
+        await ev("__dbg.teleport('venue'); __G.dbg.autoplay=true; __dbg.startGig()"); await pg.wait_for_timeout(1500)
+        await pg.keyboard.press('KeyE'); await pg.wait_for_timeout(300)
+        await ev("(()=>{const c=__dbg.world.crowdPos[5], P=__dbg.P; P.pos.set(c.x, c.y, c.z+1.0); P.yaw=Math.PI; P.pitch=-0.1;})()"); await pg.wait_for_timeout(500)
+        await pg.keyboard.press('Space'); await pg.wait_for_timeout(150)
+        print('jump y', await ev("__dbg.P.vy.toFixed(1)"))
+        await pg.wait_for_timeout(800)
+        await pg.keyboard.press('KeyE'); await pg.wait_for_timeout(200)
+        await pg.screenshot(path='shots/165_highfive.png')
+        print(errs)
+        await b.close()
+asyncio.run(main())

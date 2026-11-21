@@ -1,0 +1,6 @@
+node_modules/
+shots/
+dist/game.js
+dist/index.html
+dist/tpose.*
+dist/bodies.*

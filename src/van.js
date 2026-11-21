@@ -267,11 +267,11 @@ export class Van {
       if (!o.isMesh) return;
       const src = o.material, name = src.name || '';
       box.setFromObject(o);
-      if (cfg.hide && cfg.hide(o, name, box)) { o.visible = false; return; }
+      if ((cfg.hide && cfg.hide(o, name, box)) || (src.transparent && src.opacity < 0.05)) { o.visible = false; return; }
       if (cfg.spin && cfg.spin(o, name)) this.shellSpin.push(o.parent && !o.parent.isScene && o.parent.children.length === 1 ? o.parent : o);
       if (!mats.has(src)) {
         let m;
-        if (/window|glass/i.test(name)) m = new THREE.MeshToonMaterial({ color: '#1c2a33', transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+        if (src.transparent || /^windows?$/i.test(name)) m = new THREE.MeshToonMaterial({ color: '#1c2a33', transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
         else { m = toon('#ffffff', { map: src.map || null, side: THREE.DoubleSide }); if (!src.map) m.color.copy(src.color); if (cfg.tint) cfg.tint(m, name); }
         if (src.emissiveMap) { m.emissiveMap = src.emissiveMap; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0.25; this.shellLamps.push(m); }
         mats.set(src, cut(m));
@@ -561,7 +561,7 @@ export class Van {
     stairs(-1, 5.6, 6.44); stairs(-1, -1.96, -1.12); stairs(-1, -5.58, -4.92); stairs(1, -0.93, -0.22);
     // ---- interior (floor plan, front → back)
     const ip = { parent: this.interior };
-    bx(-IW, IW, TOP - 0.02, TOP, ZB + 0.1, ZF - 0.1, toon('#16090c'), { ...ip, solid: false, cast: false });
+    bx(-IW, IW, TOP - 0.02, TOP, ZB + 0.1, ZF - 0.1, toon('#16090c'), { ...ip, solid: false, cast: false }).userData.insideOnly = true;
     const purple = toon('#141216'), sofa = toon('#b3121f'), sofa2 = toon('#860d17'), counter = toon('#141216'), gold = toon('#d1a94a');
     this.seatBox(0.72, 5.72, '#3a3a42', '#2c2c33');
     // cab partition with centre doorway
@@ -601,8 +601,8 @@ export class Van {
     for (const [x, z, h, c] of cases) { const m = bx(x - 0.35, x + 0.35, F, F + h, z - 0.35, z + 0.35, toon(c), ip); this.rack.push({ g: m, base: m.position.clone() }); }
     for (const [role, x, z, sc] of [['drums', 0.15, -4.1, 0.5], ['synthA', -0.25, -2.8, 0.45]]) { const g = makeInstrument(role); g.scale.setScalar(sc); g.position.set(x, F, z); g.rotation.y = P2; this.interior.add(g); this.rack.push({ g, base: g.position.clone() }); }
     // mood lighting
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 9.8), basic('#ff2a3c')); strip.position.set(IW - 0.02, TOP - 0.05, 0); this.interior.add(strip);
-    const strip2 = strip.clone(); strip2.position.x = -IW + 0.02; this.interior.add(strip2);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 9.8), basic('#ff2a3c')); strip.position.set(IW - 0.02, TOP - 0.05, 0); strip.userData.insideOnly = true; this.interior.add(strip);
+    const strip2 = strip.clone(); strip2.userData.insideOnly = true; strip2.position.x = -IW + 0.02; this.interior.add(strip2);
     for (const z of [3.2, 0.6, -3.6]) { const l = new THREE.PointLight('#ff9a8a', 1.8, 6, 1.5); l.position.set(0, TOP - 0.3, z); this.interior.add(l); }
     // dash
     bx(-0.4, IW, F, F + 0.8, ZF - 0.65, ZF - 0.05, toon('#26252b'));
@@ -623,7 +623,7 @@ export class Van {
     const tv = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.62, 1.1), toon('#0a0a0c')); tv.position.set(IW - 0.04, F + 1.45, 1.34); this.interior.add(tv);
     const tvS = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 0.54), basic('#ffffff', { map: neonTex(['LIVE', 'WORLD TOUR'], { w: 256, h: 136, color: '#ff2a3c', size: [64, 30], bg: '#12060a' }) })); tvS.position.set(IW - 0.07, F + 1.45, 1.34); tvS.rotation.y = -P2; this.interior.add(tvS);
     this.busNeon = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.4), basic('#ffffff', { map: neonTex('THE LOOSE WIRES', { w: 512, h: 120, color: '#ffd27a', size: 56 }), transparent: true })); this.busNeon.position.set(0.63, F + 1.75, -2.04); this.interior.add(this.busNeon);
-    const stars = new THREE.Group(); for (let i = 0; i < 70; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.01, 0.025), basic(i % 6 ? '#ffe9c0' : '#ff5a6a')); d.position.set((Math.sin(i * 12.9898) * 0.5) * (IW * 1.8), TOP - 0.03, -1.9 + ((i * 0.6180339) % 1) * 6.2); stars.add(d); } this.interior.add(stars);
+    const stars = new THREE.Group(); for (let i = 0; i < 70; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.01, 0.025), basic(i % 6 ? '#ffe9c0' : '#ff5a6a')); d.position.set((Math.sin(i * 12.9898) * 0.5) * (IW * 1.8), TOP - 0.03, -1.9 + ((i * 0.6180339) % 1) * 6.2); stars.add(d); } stars.userData.insideOnly = true; this.interior.add(stars);
     const rug = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.012, 1.5), toon('#141216')); rug.position.set(0, F + 0.006, 3.1); this.interior.add(rug);
     const rugTrim = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.01, 1.58), gold); rugTrim.position.set(0, F + 0.003, 3.1); this.interior.add(rugTrim);
     // diegetic CCTV: 4 cameras feeding a monitor on the dash

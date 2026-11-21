@@ -168,7 +168,7 @@ export class Van {
     const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof m === 'string' ? toon(m) : m);
     const chrome = toon('#c9c6c0'), dark = toon('#1c1b20'), amber = basic('#ffb347'), red = basic('#c0281e');
     // a curved panel across the front: vertical cylinder segment whose chord spans the body width
-    const curved = (R, y0, y1, zFace, mat, halfW = W) => { const half = Math.asin(Math.min(0.999, halfW / R)); const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, y1 - y0, 12, 1, false, -half, half * 2), mat); return add(m, 0, (y0 + y1) / 2, zFace - R * Math.cos(half)); };
+    const curved = (R, y0, y1, zFace, mat0, halfW = W) => { const mat = mat0.clone(); mat.side = THREE.DoubleSide; const half = Math.asin(Math.min(0.999, halfW / R)); const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, y1 - y0, 12, 1, true, -half, half * 2), mat); return add(m, 0, (y0 + y1) / 2, zFace - R * Math.cos(half)); };
     if (this.type === 'van') {
       const lower = toon('#d9763a'), upper = toon('#efe6d2'), BL = F + 0.82;
       // rounded two-tone nose with a curved bumper
